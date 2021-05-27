@@ -13,3 +13,10 @@ Command syntax:
   esx-names.py <file containing show ap bss-table output> --esx <.esx file>
 ```
 
+Options:
+```
+  --esxdir <directory containing .esx files>
+  --vendor  Update AP name with vendor name if the BSS is not found in bss-table
+  --dryrun  Do not create .esx file
+  --debug   Enable debug log
+```
