@@ -23,7 +23,7 @@ This script will update the Ekahau file with actual AP name using BSS table ('sh
   --debug   Enable debug log
 ```
 
-
+<br><br>
 ## apdb2xls.py
   
 This script creates MS Excel file from 'show ap database long' output.
@@ -36,8 +36,7 @@ This script creates MS Excel file from 'show ap database long' output.
 `<infile>` - The file containing 'show ap database long' output. e.g. tech-support.log  
 `<outfile>` - (optional) The filename to save the Excel data. 'ap-database.xlsx' is used if not specified.
 
-
-
+<br><br>
 ## ap2xls.py
   
 This script joins 2 AP tables (show ap database long and show ap active) then write the result to an MS Excel file.
