@@ -32,7 +32,7 @@ This script creates MS Excel file from 'show ap database long' output.
 ```
   apdb2xls.py <infile> [<outfile>]
 ```
-`<infile>` - The file containing 'show ap database long' output. e.g. tech-support.log
+`<infile>` - The file containing 'show ap database long' output. e.g. tech-support.log  
 `<outfile>` - (optional) The filename to save the Excel data. 'ap-database.xlsx' is used if not specified.
 
   
@@ -44,5 +44,5 @@ This script joins 2 AP tables (show ap database long and show ap active) then wr
 ```
   ap2xls.py <infile> [<outfile>]
 ```
-`<infile>` - The file containing 'show ap database long' output. e.g. tech-support.log
+`<infile>` - The file containing 'show ap database long' output. e.g. tech-support.log  
 `<outfile>` - (optional) The filename to save the Excel data. 'ap-table.xlsx' is used if not specified.
