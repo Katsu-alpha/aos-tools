@@ -13,8 +13,8 @@ This script will update the Ekahau file with actual AP name using AP name-BSS ma
 ```
   esx-names.py <bss-table file> --esx <.esx file>
 ```
-<bss-table file> - The file containing the 'show ap bss-table' output. e.g. tech-support.log
-<.esx file> - Ekahau .esx file to process
+`<bss-table file>` - The file containing the 'show ap bss-table' output. e.g. tech-support.log  
+`<.esx file>` - Ekahau .esx file to process
 
 #### Options
 ```
