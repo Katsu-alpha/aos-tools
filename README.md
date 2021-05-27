@@ -9,6 +9,7 @@ This script will update the Ekahau file with actual AP name.
 You need to feed BSS to AP name mapping by 'show ap bss-table' output.
 
 Command syntax:
-'''
+```
   esx-names.py <file containing show ap bss-table output> --esx <.esx file>
-'''
+```
+
