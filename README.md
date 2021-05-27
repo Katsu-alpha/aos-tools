@@ -7,7 +7,7 @@ Small tools to parse/process AOS logs, etc.
 
 Sometimes customer does not allow us to enable 'advertise-ap-name' before survey starts.
 The AP names in Ekahau survey result will be shown as 'Measured AP-<last 2 octets of BSSID>' in such case and it is annoying to look up actual AP names when we need to know the location or configuration of it.
-This script will update the Ekahau file with actual AP name using BSS table ('show ap bss-table' output)
+This script will update the Ekahau file with actual AP name using AP name-BSS mapping information ('show ap bss-table' output).
 
 #### Command Syntax
 ```
