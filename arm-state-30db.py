@@ -13,6 +13,9 @@ import mylogger as log
 from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
 from collections import defaultdict
 
+# APpat = "^APKUDKS|^APSMFTM"
+# APpat = "^APGTS"
+
 def fln():
     return fileinput.filename() + ":" + str(fileinput.filelineno())
 
@@ -37,6 +40,10 @@ flrcov = defaultdict(lambda: 0)
 def parse_nbr_data(out, myapn, mych):
     global apn2model, apn2group
     global apgctr, apgcov
+
+    if 'APpat' in globals() and not re.search(APpat, myapn):
+        return
+
     cmd = out[0].strip()
     aos = AOSParser("".join(out), [cmd])
     tbl = aos.get_table(cmd)

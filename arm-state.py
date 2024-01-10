@@ -15,8 +15,9 @@ from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
 from collections import defaultdict
 
 
-#APpat = "^APKUDKS|^APSMFTM"
-APpat = ".*"
+# APpat = "^APKUDKS|^APSMFTM"
+# APpat = "^APGTS"
+# APpat = "^idjktpsy"
 
 def fln():
     return fileinput.filename() + ":" + str(fileinput.filelineno())
@@ -69,7 +70,7 @@ def parse_nbr_data(out, myapn, mych):
     global apn2model, apn2group
     global allctr, allitf
 
-    if not re.search(APpat, myapn):
+    if 'APpat' in globals() and not re.search(APpat, myapn):
         return
 
     cmd = out[0].strip()
@@ -123,17 +124,24 @@ def parse_nbr_data(out, myapn, mych):
 
     # フロア名取得
     # fl = grp2flr[apg[:15]]
-    m = re.search(r'KUDKS(\d+)', apg)
-    if m:
-        fl = m.group(1)
-    else:
-        m = re.search(r'SMFTM(\d+)', apg)
-        if m:
-            fl = m.group(1)
-        else:
-            # log.err(f"can't get floor info from group name: {apg}")
-            # sys.exit(-1)
-            fl = "n/a"
+    fl = myapn[8:10]
+    # m = re.search(r'KUDKS(\d+)', apg)
+    # if m:
+    #     fl = m.group(1)
+    # else:
+    #     m = re.search(r'SMFTM(\d+)', apg)
+    #     if m:
+    #         fl = m.group(1)
+    #     else:
+    #         # log.err(f"can't get floor info from group name: {apg}")
+    #         # sys.exit(-1)
+    #         fl = "n/a"
+
+    # m = re.match(r'GTS(\d+)', apg)
+    # if m:
+    #     fl = m.group(1)
+    # else:
+    #     fl = "n/a"
 
     flrctr[fl] += 1
     flritf[fl] += nintf
