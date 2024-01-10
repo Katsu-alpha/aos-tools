@@ -11,6 +11,9 @@ import mylogger as log
 import datetime
 from collections import defaultdict
 
+# APpat = "^APKUD|^APSMFTM"
+# APpat = "^APGTS"
+
 #
 #   main
 #
@@ -48,9 +51,10 @@ if __name__ == '__main__':
         if not m: continue
 
         apn = m.group(1)
-        # if not apn.startswith('APGTS37') and not apn.startswith('APGTS38'):
-        if not apn.startswith('APGTS'):
+
+        if 'APpat' in globals() and not re.search(APpat, apn):
             continue
+
         ch = m.group(2)
         fl = apn[:7]
         apnctr[apn] += 1
