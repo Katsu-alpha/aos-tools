@@ -12,8 +12,8 @@ import mylogger as log
 from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
 from collections import defaultdict
 
-#APpat = "^APKUDKS|^APSMFTM"
-#APpat = "^APGTS"
+# APpat = "^APKUDKS|^APSMFTM"
+# APpat = "^APGTS"
 APpat = ".*"
 
 #
@@ -109,6 +109,6 @@ if __name__ == '__main__':
     for r in tbl:
         print(f"{r[0]:28}{r[1]:32}{r[7]:6}{r[2]:14}{r[3]:>4}{r[4]:>7}  {r[5]:>7}{r[6]:>7}")
 
-    for ch in ch_ctr.keys():
+    for ch in sorted(ch_ctr.keys(), key=lambda x: int(x)):
         avg = util_sum[ch] / ch_ctr[ch]
-        print(f"{ch} - {avg:.2f}")
+        print(f"{ch} - {avg:.2f} ({ch_ctr[ch]} APs)")
