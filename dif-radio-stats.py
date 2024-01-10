@@ -30,7 +30,7 @@ else:
     RESET = ""
 
 
-re_prompt = r'^\(\w+\) \*?#'
+re_prompt = r'[\)\]] \*?#'
 
 # key: [command][parameter]
 ctr = defaultdict(lambda: defaultdict(lambda: 0))
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             lines -= 1
             continue
 
-        r = re.match(re_prompt + r'(show .*)', l)
+        r = re.search(re_prompt + r'(show .*)', l)
         if r:
             cmd = r.group(1)
             if "show clock" in cmd:
