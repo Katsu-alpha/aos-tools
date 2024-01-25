@@ -4,17 +4,10 @@
 #   AP-535 の show ap debug radio-info をパースし、co-ch intf(%) を表示
 #
 
-import sys
 import re
 import argparse
 import fileinput
 import datetime
-import pandas as pd
-import mylogger as log
-from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
-from openpyxl.utils.dataframe import dataframe_to_rows
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
 
 
 def list2str(l):
