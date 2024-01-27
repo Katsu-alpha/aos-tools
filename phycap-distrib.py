@@ -89,7 +89,7 @@ if __name__ == '__main__':
     #
     bss2ch = {}
     for r in bss_table[1:]:
-        if r[6] == 'am': continue
+        if r[6] in ('am', 'Spectrum'): continue
         bss = r[0]
         m = re.match(r'(\d+[SE+-]?)/', r[5])
         if not m:
