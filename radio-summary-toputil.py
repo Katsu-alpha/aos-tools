@@ -3,7 +3,7 @@
 #
 #   show radio-summary をパースし、5GHz radio を channel util 順にソート
 #   端末数の column は show ap active から取得
-#
+#   Dual-5G 対応
 
 import sys
 import re
@@ -14,7 +14,7 @@ from collections import defaultdict
 
 # APpat = "^APKUDKS|^APSMFTM"
 # APpat = "^APGTS"
-APpat = ".*"
+# APpat = "^APG7"
 
 #
 #   main
@@ -51,18 +51,29 @@ if __name__ == '__main__':
     print("done.")
 
     #
-    #   show ap active から 5GHz client 数取得
+    #   show ap active から Radio0, Radio1 の client 数取得
     #
     idx_r0 = ap_active_tbl[0].index("Radio 0 Band Ch/EIRP/MaxEIRP/Clients")
-    apn_sta = {}
+    idx_r1 = ap_active_tbl[0].index("Radio 1 Band Ch/EIRP/MaxEIRP/Clients")
+    apn_ch_sta = defaultdict(lambda: {})
     apn_type = {}
     for row in ap_active_tbl[1:]:
         apn = row[0]
+
         r0 = row[idx_r0]
-        r = re.match("(.+):([\dSE+\-]+)/([\d\.]+)/[\d\.]+/(\d+)$", r0)
+        r = re.search(r":(\d+[SE+\-]?)/[\d\.]+/[\d\.]+/(\d+)$", r0)
         if r:
-            r0_sta = r.group(4)
-            apn_sta[apn] = r0_sta
+            ch = r.group(1)
+            nsta = r.group(2)
+            apn_ch_sta[apn][ch] = nsta
+
+        r1 = row[idx_r1]
+        r = re.search(r":(\d+[SE+\-]?)/[\d\.]+/[\d\.]+/(\d+)$", r1)
+        if r:
+            ch = r.group(1)
+            nsta = r.group(2)
+            apn_ch_sta[apn][ch] = nsta
+
         apn_type[apn] = row[3]
 
     #
@@ -73,7 +84,7 @@ if __name__ == '__main__':
     util_sum = defaultdict(lambda: 0)
     for r in radio_summary:
         apn = r[0]
-        if not re.search(APpat, apn):
+        if 'APpat' in globals() and not re.search(APpat, apn):
             continue
 
         apg = r[1]
@@ -95,8 +106,8 @@ if __name__ == '__main__':
 
         ch_ctr[ch] += 1
         util_sum[ch] += util
-        if apn in apn_sta:
-            sta = apn_sta[apn]
+        if ch in apn_ch_sta[apn]:
+            sta = apn_ch_sta[apn][ch]
         else:
             sta = "na"
         row = [ apn, apg, mode, eirp, sta, nf, util, apn_type[apn] ]
@@ -109,6 +120,8 @@ if __name__ == '__main__':
     for r in tbl:
         print(f"{r[0]:28}{r[1]:32}{r[7]:6}{r[2]:14}{r[3]:>4}{r[4]:>7}  {r[5]:>7}{r[6]:>7}")
 
+    print(f"Total APs: {len(apn_type)}")
+    print(f"Total Radios: {len(tbl)}")
     for ch in sorted(ch_ctr.keys(), key=lambda x: int(x)):
         avg = util_sum[ch] / ch_ctr[ch]
-        print(f"{ch} - {avg:.2f} ({ch_ctr[ch]} APs)")
+        print(f"{ch} - {avg:.2f} ({ch_ctr[ch]} Radios)")
