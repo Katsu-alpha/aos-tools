@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #
-#   dp-ses-topuser.py
+#   dp-ses-toprate.py
 #
 #   show datapath session dpi をパースし、Bitrate (Bytes/TAge) でソート
 #
