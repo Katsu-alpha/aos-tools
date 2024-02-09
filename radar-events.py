@@ -1,6 +1,6 @@
 #
 #
-#   show airmatch event radar をパースして時間単位に集計
+#   show airmatch event radar をパースして集計
 #
 
 import sys
@@ -12,7 +12,8 @@ import datetime
 from collections import defaultdict
 
 #APpat = "^APKUD|^APSMFTM"
-APpat = r" (APGTS(\d\d)\d\d)$"
+# APpat = r" (APGTS(\d\d)\d\d)$"
+APpat = r"(GTS3805|GTS3815|GTS3817|GTS3825|GTS3829|GTS3831|GTS3831|GTS3835|GTS3840)"
 
 #
 #   main
@@ -35,6 +36,7 @@ if __name__ == '__main__':
     flrctr = defaultdict(lambda: 0)
     chctr = defaultdict(lambda: 0)
     hourctr = defaultdict(lambda: 0)
+    dayctr = defaultdict(lambda: 0)
     total = 0
 
     f = fileinput.input(args.infile, encoding='utf-8')
@@ -43,7 +45,8 @@ if __name__ == '__main__':
         if not m:
             continue
         apn = m.group(1)
-        fl = m.group(2)
+        # fl = m.group(2)
+        fl = apn[3:5]
         fli = int(fl)
         if fli < 34 or fli > 38:    # 34F-38F AP のみ集計
             continue
@@ -58,13 +61,18 @@ if __name__ == '__main__':
         apnctr[apn] += 1
         chctr[int(ch)] += 1
         hourctr[hour] += 1
+        dayctr[hour[:10]] += 1
         total += 1
 
     print(f"Total radar events: {total}")
 
-    print("Hourly counts")
-    for hour in sorted(hourctr.keys()):
-        print(f'{hour}: {hourctr[hour]}')
+    # print("Hourly counts")
+    # for hour in sorted(hourctr.keys()):
+    #     print(f'{hour}: {hourctr[hour]}')
+
+    print("Daily counts")
+    for day in sorted(dayctr.keys()):
+        print(f'{day}: {dayctr[day]}')
 
     print("\nChannel counts")
     for ch in sorted(chctr.keys()):
