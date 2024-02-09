@@ -13,6 +13,7 @@ from collections import defaultdict
 
 # APpat = "^APKUD|^APSMFTM"
 # APpat = "^APGTS"
+APpat = "^APG7"
 
 #
 #   main
@@ -56,7 +57,7 @@ if __name__ == '__main__':
             continue
 
         ch = m.group(2)
-        fl = apn[:7]
+        fl = apn[4:6]
         apnctr[apn] += 1
         flrctr[fl] += 1
         chctr[int(ch)] += 1
