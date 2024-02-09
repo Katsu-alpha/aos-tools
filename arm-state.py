@@ -18,6 +18,7 @@ from collections import defaultdict
 # APpat = "^APKUDKS|^APSMFTM"
 # APpat = "^APGTS"
 # APpat = "^idjktpsy"
+# APpat = "^APG7"
 
 def fln():
     return fileinput.filename() + ":" + str(fileinput.filelineno())
@@ -124,7 +125,7 @@ def parse_nbr_data(out, myapn, mych):
 
     # フロア名取得
     # fl = grp2flr[apg[:15]]
-    fl = myapn[8:10]
+    fl = apg[2:4]
     # m = re.search(r'KUDKS(\d+)', apg)
     # if m:
     #     fl = m.group(1)
