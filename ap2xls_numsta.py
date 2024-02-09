@@ -17,6 +17,7 @@ from openpyxl.styles import Font, PatternFill
 from collections import defaultdict
 
 # APpat = "^APGTS"
+# APpat = "^APG7"
 
 def uniq(tbl):
     ret = []
@@ -108,7 +109,7 @@ if __name__ == '__main__':
             continue
 
         r0 = row[idx_r0]
-        r = re.match("(.+):([\dSE+\-]+)/([\d\.]+)/[\d\.]+/(\d+)$", r0)      # AP:5GHz-HE:124/14.0/30.0/8
+        r = re.match(r"(.+):([\dSE+\-]+)/([\d\.]+)/[\d\.]+/(\d+)$", r0)      # AP:5GHz-HE:124/14.0/30.0/8
         if r:
             r0_phy  = r.group(1)
             r0_ch   = r.group(2)
@@ -123,7 +124,7 @@ if __name__ == '__main__':
             r0_sta = "0"
 
         r1 = row[idx_r1]
-        r = re.match("(.+):([\dSE+\-]+)/([\d\.-]+)/[\d\.-]+/(\d+)$", r1)      # AP:2.4GHz-HE:11/8.0/27.7/0
+        r = re.match(r"(.+):([\dSE+\-]+)/([\d\.-]+)/[\d\.-]+/(\d+)$", r1)      # AP:2.4GHz-HE:11/8.0/27.7/0
         if r:
             r1_phy  = r.group(1)
             r1_ch   = r.group(2)
