@@ -18,6 +18,7 @@ from collections import defaultdict
 
 # APpat = "^APGTS"
 # APpat = "^APG7"
+APpat = "^APUMEDA"
 
 def uniq(tbl):
     ret = []
@@ -27,6 +28,12 @@ def uniq(tbl):
         k.add(r[0])
         ret.append(r)
     return ret
+
+def toi(s):
+    try:
+        return int(s)
+    except ValueError:
+        return 0
 
 #
 #   main
@@ -100,8 +107,8 @@ if __name__ == '__main__':
     ap_act_tbl.append(["Name", "5G PHY", "5G Ch", "5G EIRP", "5G STA", "2.4G PHY", "2.4G Ch", "2.4G EIRP", "2.4G STA"])
     idx_r0 = ap_active_tbl[0].index("Radio 0 Band Ch/EIRP/MaxEIRP/Clients")
     idx_r1 = ap_active_tbl[0].index("Radio 1 Band Ch/EIRP/MaxEIRP/Clients")
-    r0chctr = defaultdict(lambda: 0)
-    r0chsta = defaultdict(lambda: 0)
+    num_ch = defaultdict(lambda: 0)
+    sta_ch = defaultdict(lambda: 0)
     usersperfloor = defaultdict(lambda: 0)
 
     for row in ap_active_tbl[1:]:
@@ -112,29 +119,31 @@ if __name__ == '__main__':
         r = re.match(r"(.+):([\dSE+\-]+)/([\d\.]+)/[\d\.]+/(\d+)$", r0)      # AP:5GHz-HE:124/14.0/30.0/8
         if r:
             r0_phy  = r.group(1)
-            r0_ch   = r.group(2)
-            r0_eirp = r.group(3)
-            r0_sta  = r.group(4)
-            r0chctr[r0_ch] += 1
-            r0chsta[r0_ch] += int(r0_sta)
+            r0_ch   = int(r.group(2))
+            r0_eirp = float(r.group(3))
+            r0_sta  = int(r.group(4))
+            num_ch[r0_ch] += 1
+            sta_ch[r0_ch] += r0_sta
         else:
             r0_phy = ""
             r0_ch = ""
             r0_eirp = ""
-            r0_sta = "0"
+            r0_sta = ""
 
         r1 = row[idx_r1]
         r = re.match(r"(.+):([\dSE+\-]+)/([\d\.-]+)/[\d\.-]+/(\d+)$", r1)      # AP:2.4GHz-HE:11/8.0/27.7/0
         if r:
             r1_phy  = r.group(1)
-            r1_ch   = r.group(2)
-            r1_eirp = r.group(3)
-            r1_sta  = r.group(4)
+            r1_ch   = int(r.group(2))
+            r1_eirp = float(r.group(3))
+            r1_sta  = int(r.group(4))
+            num_ch[r1_ch] += 1
+            sta_ch[r1_ch] += r1_sta
         else:
             r1_phy = ""
             r1_ch = ""
             r1_eirp = ""
-            r1_sta = "0"
+            r1_sta = ""
 
 
         ap_act_tbl.append([row[0], r0_phy, r0_ch, r0_eirp, r0_sta, r1_phy, r1_ch, r1_eirp, r1_sta])
@@ -142,23 +151,20 @@ if __name__ == '__main__':
         #
         #  フロア毎のユーザ数集計
         #
-        m = re.match(r'GTS(\d\d)', row[1])
+        m = re.match(r'(\w+\d\d)', row[1])
         if m:
             fl = m.group(1)
         else:
             fl = 'n/a'
             #print(f"Uknown floor: AP {row[0]} Group {row[1]}")
-        try:
-            usersperfloor[fl] += int(r0_sta) + int(r1_sta)
-        except Exception as e:
-            print(f"Error: {e}")
-            print(row)
-            sys.exit(-1)
+
+        usersperfloor[fl] += toi(r0_sta) + toi(r1_sta)
 
 
-    print("5GHz Channel distribution")
-    for ch in sorted(r0chctr.keys()):
-        print(f"{ch}: {r0chctr[ch]} ({r0chsta[ch]})")
+    print("Channel distribution")
+    print("channel: radios (clients)")
+    for ch in sorted(num_ch.keys()):
+        print(f"{ch}: {num_ch[ch]} ({sta_ch[ch]})")
 
     print("\nUsers per floor")
     for fl in sorted(usersperfloor.keys()):
