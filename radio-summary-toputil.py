@@ -1,9 +1,10 @@
 #
 #   radio-summary-toputil.py
 #
-#   show radio-summary をパースし、5GHz radio を channel util 順にソート
+#   show radio-summary をパースし、5GHz radio を channel util 順にソートし、Excel に出力
 #   端末数の column は show ap active から取得
 #   Dual-5G 対応
+#
 
 import sys
 import re
@@ -19,6 +20,8 @@ import pandas as pd
 # APpat = "^APKUDKS|^APSMFTM"
 # APpat = "^APGTS"
 # APpat = "^APG7"
+# APpat = "^APUMEDA"
+APpat = "^APHIBFS"
 
 #
 #   main
@@ -145,23 +148,28 @@ if __name__ == '__main__':
     for r in dataframe_to_rows(df_toputil, index=False, header=True):
         ws.append(r)
 
-    # set font
-    f = Font(name='Consolas')
-    for row in ws.iter_rows(min_row=1):
-        for cell in row:
-            cell.font = f
-
     # set column width
     widths = [30, 40, 10, 20, 10, 10, 10, 10, 10]
     for i, w in enumerate(widths):
         ws.column_dimensions[chr(65+i)].width = w
 
     # set header font and color
-    f = Font(name='Arial', bold=True, size=9)
-    s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+    f = Font(name='Calibri', bold=True, size=11, color="FFFFFF")
+    p = PatternFill(fgColor="70AD47", fill_type="solid")
     for cell in ws['A1':'I1'][0]:
-        cell.fill = s
         cell.font = f
+        cell.fill = p
+
+    # set font, bgcolor
+    f = Font(name='Consolas')
+    p = PatternFill(fgColor="e2efda", fill_type="solid")
+    rn = 1
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            cell.font = f
+            if rn&1:
+                cell.fill = p
+        rn += 1
 
     # centering for AP type
     for cell in ws['C'][1:]:
