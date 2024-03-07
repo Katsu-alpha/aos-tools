@@ -1,6 +1,6 @@
 #
 #
-#   show airmatch event radar をパースして時間単位に集計
+#   show airmatch event radar をパースして各APの一日ごとの検出回数を CSV 出力
 #
 
 import sys
@@ -8,16 +8,15 @@ import re
 import argparse
 import fileinput
 import mylogger as log
-import datetime
 from collections import defaultdict
+from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE
 
 # APpat = "^APKUD|^APSMFTM"
 # APpat = r" (APGTS(\d\d)\d\d)$"
 # APpat = r"(APGTS3805|APGTS3815|APGTS3817|APGTS3825|APGTS3829|APGTS3831|APGTS3835|APGTS3840)"
 # APpat = r"(APGTS2805|APGTS2815|APGTS2817|APGTS2825|APGTS2829|APGTS2831|APGTS2835|APGTS2840)"
-# APpat = r"(APGTS38\d\d)"
 # APpat = r"(APGTS28\d\d)"
-APpat = r"(APGTS\d\d\d\d)"
+APpat = r" (APGTS\d\d\d\d$|APGTS\d\d\d\d-2$)"
 
 #
 #   main
@@ -28,12 +27,32 @@ if __name__ == '__main__':
         description="Parse airmatch radar events")
     parser.add_argument('infile', help="Input file(s)", type=str, nargs='+')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
+    parser.add_argument('-d', '--apdb', help='show ap database long output', type=str)
     args = parser.parse_args()
 
     if args.debug:
         log.setloglevel(log.LOG_DEBUG)
     else:
         log.setloglevel(log.LOG_INFO)
+
+
+    #
+    #   parse AP tables
+    #
+    apn2model = None
+    if args.apdb is not None:
+        apn2model = {}
+        print(f"Parsing file {args.apdb} ... ", end="")
+        aos = AOSParser(args.apdb, [AP_DATABASE_LONG_TABLE], merge=True)
+        ap_db_tbl = aos.get_table(AP_DATABASE_LONG_TABLE)
+        if ap_db_tbl is None:
+            print("show ap database long output not found.")
+            sys.exit(-1)
+        print("done.")
+
+        for r in ap_db_tbl[1:]:
+            apn2model[r[0]] = r[2]
+
 
 
     apnctr = defaultdict(lambda: 0)
@@ -85,9 +104,16 @@ if __name__ == '__main__':
 
     print("Per-AP daily counts")
     ds = sorted(list(days))
-    print("AP Name,"+",".join(ds))
+    if apn2model is None:
+        print("AP Name," + ",".join(ds))
+    else:
+        print("AP Name,Model," + ",".join(ds))
     for apn in sorted(dayctr.keys()):
-        print(f'{apn},', end="")
+        if apn2model is None:
+            print(f'{apn},', end="")
+        else:
+            print(f'{apn},{apn2model[apn]},', end="")
+
         for day in ds:
             print(f'{dayctr[apn][day]},', end="")
         print()
