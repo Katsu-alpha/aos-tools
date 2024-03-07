@@ -2,7 +2,7 @@
 #   arm-state.py
 #
 #   show ap arm state をパースし、以下の条件の AP を表示
-#       - SNR 25dB 以上
+#       - SNR 30dB 以上
 #
 
 import sys
@@ -15,6 +15,10 @@ from collections import defaultdict
 
 # APpat = "^APKUDKS|^APSMFTM"
 # APpat = "^APGTS"
+# APpat = "^APG7"
+APpat = "^APUMEDA"
+# APpat = "^APHIBFS"
+SNR_THRESHOLD = 30
 
 def fln():
     return fileinput.filename() + ":" + str(fileinput.filelineno())
@@ -37,6 +41,19 @@ grp2flr = {'Pasaraya 2nd Floor': 2,
 flrctr = defaultdict(lambda: 0)
 flrcov = defaultdict(lambda: 0)
 
+
+def getfloor(apn, apg):
+    global grp2flr
+
+    # m = re.search(r'GTS(\d\d)', apg)
+    m = re.match(r'APUMEDA(\d\d)', apn)
+    if m:
+        return m.group(1)
+    else:
+        if len(apg) > 18:
+            apg = apg[:18]
+        return grp2flr[apg]
+
 def parse_nbr_data(out, myapn, mych):
     global apn2model, apn2group
     global apgctr, apgcov
@@ -49,21 +66,12 @@ def parse_nbr_data(out, myapn, mych):
     tbl = aos.get_table(cmd)
     if tbl is None or len(tbl) == 0:
         apg = apn2group[myapn]
-        #m = re.search(r'Floor_(\d\d)', apg)
-        m = re.search(r'GTS(\d\d)', apg)
-        if m:
-            fl = m.group(1)
-        else:
-            # log.err(f"can't get floor info from group name: {apg}")
-            # sys.exit(-1)
-            fl = 'n/a'
-        # if len(apg) > 18:
-        #     apg = apg[:18]
-        # fl = grp2flr[apg]
+        fl = getfloor(myapn, apg)
         apgctr[apg] += 1
         flrctr[fl] += 1
         print(f"{myapn},{apg},{mych},0")
         return
+
     tbl2 = []
     for r in tbl[1:]:
         apn = r[0]
@@ -79,7 +87,7 @@ def parse_nbr_data(out, myapn, mych):
             print(f"Can't parse Ch/EIRP: {r[5]}")
             exit()
 
-        if snr >= 25:
+        if snr >= SNR_THRESHOLD:
             tbl2.append([apn, snr, ch, pwr])
 
     # print(f'AP "{myapn}" Ch={mych}')
@@ -91,17 +99,7 @@ def parse_nbr_data(out, myapn, mych):
     # print()
 
     apg = apn2group[myapn]
-    #m = re.search(r'Floor_(\d\d)', apg)
-    m = re.search(r'GTS(\d\d)', apg)
-    if m:
-        fl = m.group(1)
-    else:
-        # log.err(f"can't get floor info from group name: {apg}")
-        # sys.exit(-1)
-        fl = 'n/a'
-    # if len(apg) > 18:
-    #     apg = apg[:18]
-    # fl = grp2flr[apg]
+    fl = getfloor(myapn, apg)
     apgctr[apg] += 1
     apgcov[apg] += len(tbl2)
     flrctr[fl] += 1
@@ -146,11 +144,12 @@ if __name__ == '__main__':
         if l.startswith('show ap arm state'):
             break
 
+    print("AP Name,Group,Type,Channel,Co-ch AP")
+
     out = []
     cont = 0
     for l in f:
         if cont != 0 and l.startswith('Legend: '):
-            # if apn.startswith('APGTS23'):
             parse_nbr_data(out, apn, ch)
             cont = 0
             continue
@@ -172,10 +171,12 @@ if __name__ == '__main__':
         continue
 
 
+    print(f"\nAvg cov-APs (SNR>={SNR_THRESHOLD}) per AP Group:")
     for apg in sorted(apgctr.keys()):
         avg = apgcov[apg] / apgctr[apg]
         print(f"{apg:20}: {avg:6.2f}")
 
+    print(f"\nAvg cov-APs (SNR>={SNR_THRESHOLD}) per Floor:")
     for fl in sorted(flrctr.keys()):
         avg = flrcov[fl] / flrctr[fl]
         print(f"{fl:5}: {avg:6.2f}")
