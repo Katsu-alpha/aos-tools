@@ -3,7 +3,6 @@
 #   ap2-monitor-list.py
 #
 #   show ap monitor ap-list の結果をパースし、valid/interfering に分け、curr_snr でソートして出力
-#   AOS 8.10 対応版
 #
 
 import sys
@@ -50,27 +49,16 @@ if __name__ == '__main__':
     #
     #   Process columns in active AP table
     #
-    cols = ["bssid", "essid", "band/chan/ch-width/ht-type", "ap-type", "encr", "curr-snr", "curr-rssi"]
+    cols = ["bssid", "essid", "chan", "ap-type", "phy-type", "encr", "curr-snr", "curr-rssi"]
     ap_list_tbl_2 = aos.get_table(cmd, *cols)
-    aplist = []
     for row in ap_list_tbl_2:
-        try:
-            row[5] = int(row[5])    # curr-snr
-            row[6] = int(row[6])    # curr-rssi
-            r = re.search("/(\d+[SE+-]?)/(\d+MHz)/(\w+)", row[2])   # "5GHz/36+/40MHz/VHT"
-            if r:
-                ch = r.group(1)
-                cbw = r.group(2)
-                phy = r.group(3)
-                pch = int(re.sub(r'[SE+-]', '', ch))
-            else:
-                print(f"invalid phy column: {row[2]}")
-                sys.exit(1)
-        except ValueError:
-            print(f"Can't parse row: {row}")
-            sys.exit(1)
-        aplist.append([row[0], row[1], ch, pch, cbw, phy, row[3], row[4], row[5], row[6]])
-
+        row[6] = int(row[6])
+        row[7] = int(row[7])
+        r = re.match("(\d+)", row[2])   # channel
+        if r:
+            row.append(int(r.group(1)))
+        else:
+            row.append(0)
     #print(aos.table2str(ap_list_tbl_2))
     #sys.exit(0)
 
@@ -80,8 +68,8 @@ if __name__ == '__main__':
     pd.set_option('display.max_columns', 10)
     pd.set_option('display.max_rows', 300)
     pd.set_option('display.width', 1000)
-    cols = ["bssid", "essid", "chan", "pchan", "cbw", "phy", "ap_type", "encr", "curr_snr", "curr_rssi"]
-    df_ap_list = pd.DataFrame(aplist, columns=cols)
+    cols = ["bssid", "essid", "chan", "ap_type", "phy_type", "encr", "curr_snr", "curr_rssi", "pchan"]
+    df_ap_list = pd.DataFrame(ap_list_tbl_2, columns=cols)
     df = df_ap_list.sort_values(['curr_snr'], ascending=False)
 
 
