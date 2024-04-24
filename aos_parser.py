@@ -157,7 +157,7 @@ class AOSParser:
                         in_cont = False
                         self.end_of_cmd()
                         continue
-                elif 'ap-list' in self.cur_cmd:
+                elif ('ap-list' in self.cur_cmd) or ('client-list' in self.cur_cmd):
                     if line.startswith("Start:"):
                         in_cmd = False
                         in_cont = False

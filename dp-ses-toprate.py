@@ -91,7 +91,7 @@ if __name__ == '__main__':
         i+=1
 
     print(f"Total bitrate: {tot_br/1000/1000:.2f} Mbps")
-    sys.exit(0)
+    #sys.exit(0)
 
     print("\n==== Multicast ====")
     for r in sorted(tbl_m, key=lambda x:x[7], reverse=True)[:100]:

@@ -16,9 +16,11 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from collections import defaultdict
 
-# APpat = "^APGTS"
+APpat = "^APGTS"
 # APpat = "^APG7"
-APpat = "^APUMEDA"
+# APpat = "^APUMEDA"
+# APpat = "^APHIBFS"
+# APpat = "^MICL5"
 
 def uniq(tbl):
     ret = []
@@ -34,6 +36,7 @@ def toi(s):
         return int(s)
     except ValueError:
         return 0
+
 
 #
 #   main
@@ -80,8 +83,7 @@ if __name__ == '__main__':
     #
     #   filter AP database table
     #
-    ap_db_tbl = []
-    ap_db_tbl.append(ap_database_tbl[0])
+    ap_db_tbl = [ap_database_tbl[0]]
     for r in ap_database_tbl[1:]:
         if 'APpat' in globals() and not re.search(APpat, r[0]):
             continue
@@ -103,8 +105,7 @@ if __name__ == '__main__':
     #
     #   Process columns in active AP table
     #
-    ap_act_tbl = []
-    ap_act_tbl.append(["Name", "5G PHY", "5G Ch", "5G EIRP", "5G STA", "2.4G PHY", "2.4G Ch", "2.4G EIRP", "2.4G STA"])
+    ap_act_tbl = [["Name", "5G PHY", "5G Ch", "5G EIRP", "5G STA", "2.4G PHY", "2.4G Ch", "2.4G EIRP", "2.4G STA"]]
     idx_r0 = ap_active_tbl[0].index("Radio 0 Band Ch/EIRP/MaxEIRP/Clients")
     idx_r1 = ap_active_tbl[0].index("Radio 1 Band Ch/EIRP/MaxEIRP/Clients")
     num_ch = defaultdict(lambda: 0)
@@ -119,7 +120,7 @@ if __name__ == '__main__':
         r = re.match(r"(.+):([\dSE+\-]+)/([\d\.]+)/[\d\.]+/(\d+)$", r0)      # AP:5GHz-HE:124/14.0/30.0/8
         if r:
             r0_phy  = r.group(1)
-            r0_ch   = int(r.group(2))
+            r0_ch   = r.group(2)
             r0_eirp = float(r.group(3))
             r0_sta  = int(r.group(4))
             num_ch[r0_ch] += 1
@@ -134,7 +135,7 @@ if __name__ == '__main__':
         r = re.match(r"(.+):([\dSE+\-]+)/([\d\.-]+)/[\d\.-]+/(\d+)$", r1)      # AP:2.4GHz-HE:11/8.0/27.7/0
         if r:
             r1_phy  = r.group(1)
-            r1_ch   = int(r.group(2))
+            r1_ch   = r.group(2)
             r1_eirp = float(r.group(3))
             r1_sta  = int(r.group(4))
             num_ch[r1_ch] += 1

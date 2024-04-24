@@ -21,7 +21,14 @@ import pandas as pd
 # APpat = "^APGTS"
 # APpat = "^APG7"
 # APpat = "^APUMEDA"
-APpat = "^APHIBFS"
+# APpat = "^APHIBFS"
+
+def atoi(s):
+    m = re.match(r'(\d+)', s)
+    if m:
+        return int(m.group(1))
+    else:
+        return 0
 
 #
 #   main
@@ -100,7 +107,7 @@ if __name__ == '__main__':
             continue
         mode = r[5]     # AP:VHT:56
         if mode == 'AM': continue
-        m = re.search(":(\d+)", mode)
+        m = re.search(":(\d+[SE+\-]?)", mode)   # Channel
         if m:
             ch = m.group(1)
         m = re.search("([0-9\.]+)/", r[6])   # EIRP/MaxEIRP
@@ -131,7 +138,7 @@ if __name__ == '__main__':
 
     print(f"Total APs: {len(apn_ch_sta)}")
     print(f"Total Radios: {len(tbl)}")
-    for ch in sorted(ch_ctr.keys(), key=lambda x: int(x)):
+    for ch in sorted(ch_ctr.keys(), key=lambda x: atoi(x)):
         avg = util_sum[ch] / ch_ctr[ch]
         print(f"{ch} - {avg:.2f} ({ch_ctr[ch]} Radios)")
 

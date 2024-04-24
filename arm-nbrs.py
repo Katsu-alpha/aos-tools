@@ -77,13 +77,14 @@ def parse_ap_mon(out, apn):
     tbl2 = []
     bss_set = set()
     for r in tbl[1:]:
+        # print(r)
         bss = r[0]
-        if Suppress_VAPs and bss[:16] in bss_set:
+        type = r[3]
+        if Suppress_VAPs and type == 'valid' and bss[:16] in bss_set:
             continue
         bss_set.add(bss[:16])
         ess = r[1]
         radio = r[2]
-        type = r[3]
         snr = int(r[10])
 
         if Only5G:
