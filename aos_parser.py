@@ -25,7 +25,9 @@ AP_ASSOCIATION_TABLE = "show ap association"
 USER_TABLE = "show user-table"
 DATAPATH_SESSION_TABLE = "show datapath session verbose"
 DATAPATH_SESSION_DPI = "show datapath session dpi"
+DATAPATH_SESSION_INT = "show datapath session internal"
 DATAPATH_USER = "show datapath user table"
+DATAPATH_BRIDGE = "show datapath bridge table"
 
 def _get_cols_gen(tbl, *cols):
     idx = [tbl[0].index(col) for col in cols]
@@ -141,12 +143,20 @@ class AOSParser:
                 #
                 #   end of table check
                 #
-                if self.cur_cmd in (DATAPATH_SESSION_TABLE, DATAPATH_SESSION_DPI, DATAPATH_USER):
+                if self.cur_cmd in (DATAPATH_SESSION_TABLE, DATAPATH_SESSION_DPI, DATAPATH_SESSION_INT, DATAPATH_USER):
                     if line == '':
                         continue        # skip blank line in datapath session table
                     if re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
                         continue        # skip entries start with MAC address
                     if not line[0].isdigit():
+                        in_cmd = False
+                        in_cont = False
+                        self.end_of_cmd()
+                        continue
+                elif self.cur_cmd == DATAPATH_BRIDGE:
+                    if line == '':
+                        continue        # skip blank line in datapath bridge table
+                    if not re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
                         in_cmd = False
                         in_cont = False
                         self.end_of_cmd()
@@ -158,7 +168,7 @@ class AOSParser:
                         self.end_of_cmd()
                         continue
                 elif ('ap-list' in self.cur_cmd) or ('client-list' in self.cur_cmd):
-                    if line.startswith("Start:"):
+                    if line.startswith("Start:") or line.startswith("dt:Discovered"):
                         in_cmd = False
                         in_cont = False
                         self.end_of_cmd()
