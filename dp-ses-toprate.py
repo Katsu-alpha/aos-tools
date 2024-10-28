@@ -12,7 +12,9 @@ import mylogger as log
 from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
 from collections import defaultdict
 
-
+#
+#   重複するキーを削除
+#
 def uniq(tbl, col=0):
     ret = []
     k = set()
@@ -44,12 +46,28 @@ if __name__ == '__main__':
     #   parse AP tables
     #
     print("Parsing files ... ", end="")
-    aos = AOSParser(args.infile, ["show datapath session dpi"], merge=True)
+    aos = AOSParser(args.infile, ["show user-table", "show datapath session dpi", "show datapath session internal"], merge=True)
     dp_ses = aos.get_table("show datapath session dpi")
     if dp_ses is None:
-        print("show datapath session dpi output not found.")
+        dp_ses = aos.get_table("show datapath session internal")
+        if dp_ses is None:
+            print("show datapath session dpi|internal output not found.")
+            sys.exit(-1)
+    user_tbl = aos.get_table("show user-table")
+    if user_tbl is None:
+        print("show user-table output not found.")
         sys.exit(-1)
     print(f"done. {len(dp_ses)-1} session entries found.")
+
+
+    #
+    #   parse user-table and create IP to AP Name mapping
+    #
+    ip2apn = {}
+    for r in user_tbl[1:]:
+        ip = r[0]
+        apn = r[7]
+        ip2apn[ip] = apn
 
 
     #
@@ -58,15 +76,21 @@ if __name__ == '__main__':
     tbl = []
     tbl_m = []
     num_v = num_i = num_q = num_u = tot_br = 0
+    idx_tos   = dp_ses[0].index('ToS')
+    idx_tage  = dp_ses[0].index('TAge')
+    idx_bytes = dp_ses[0].index('Bytes')
+    idx_flags = dp_ses[0].index('Flags')
+    idx_appid = dp_ses[0].index('AppID')
+
     for r in dp_ses[1:]:
-        tage = int(r[10], 16)
+        tage = int(r[idx_tage], 16)
         if tage <= 5: continue          # ignore short-lived session
         if r[2] == '47': continue       # ignore GRE tunnel
-        bytes = int(r[12])
-        flags = r[20]
+        bytes = int(r[idx_bytes])
+        flags = r[idx_flags]
         bitrate = bytes*8/tage
         tot_br += bitrate
-        tbl.append([r[0], r[1], r[2], r[3], r[4], tage, bytes, bitrate, flags])
+        tbl.append([r[0], r[1], r[2], r[3], r[4], r[idx_tos], tage, bytes, bitrate, flags, r[idx_appid][:16].rstrip()])
 
         m = re.match(r'(\d+)\.', r[1])
         if m:
@@ -81,12 +105,14 @@ if __name__ == '__main__':
 
     i = 1
     #print('Src,Dst,Proto,SPort,DPort,Bytes,Bitrate(Kbps),Flags')
-    print("Src IP              Dst IP              Proto  SPort  DPort  Bytes      Dur   BW(Kbps)   Flags")
-    print("------              ------              -----  -----  -----  -----      ---   --------   -----")
-    for r in sorted(tbl, key=lambda x:x[7], reverse=True)[:200]:
+    print("Src IP              Src AP              Dst IP              Dst AP              Proto  SPort  DPort  ToS  Bytes        Dur   BW(Kbps)  Flags  AppID")
+    print("------              ------              ------              ------              -----  -----  -----  ---  -----        ---   --------  -----  -----")
+    for r in sorted(tbl, key=lambda x:x[8], reverse=True)[:200]:
         src = r[0]
         dst = r[1]
-        print(f'{src:20}{dst:20}{r[2]:7}{r[3]:7}{r[4]:7}{r[6]:>10}{r[5]:>6} {r[7]/1000:>10.2f} {r[8]} ')
+        sap = ip2apn.get(src, '')
+        dap = ip2apn.get(dst, '')
+        print(f'{src:20}{sap:20}{dst:20}{dap:20}{r[2]:7}{r[3]:7}{r[4]:7}{r[5]:3}  {r[7]:>10}{r[6]:>6} {r[8]/1000:>10.2f}  {r[9]:5}  {r[10]}')
         #print(f'{src},{dst},{r[2]},{r[3]},{r[4]},{r[6]},{r[7]/1000:>8.2f},{r[8]}')
         i+=1
 
