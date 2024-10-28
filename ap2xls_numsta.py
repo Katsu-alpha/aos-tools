@@ -4,6 +4,7 @@
 #
 #   Join 'show ap database' and 'show ap active' tables and write the result to an MS Excel file
 #
+#   2024/10/24 - AP-655 (tri-radio) 対応
 
 import sys
 import re
@@ -16,11 +17,14 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from collections import defaultdict
 
-APpat = "^APGTS"
+# APpat = "^APGTS"
 # APpat = "^APG7"
 # APpat = "^APUMEDA"
 # APpat = "^APHIBFS"
 # APpat = "^MICL5"
+# APpat = "^E013-A02[3456]"
+# APpat = r'SG-WA-F02|SG-WC-F02'
+APpat = r'^wse'
 
 def uniq(tbl):
     ret = []
@@ -105,9 +109,16 @@ if __name__ == '__main__':
     #
     #   Process columns in active AP table
     #
-    ap_act_tbl = [["Name", "5G PHY", "5G Ch", "5G EIRP", "5G STA", "2.4G PHY", "2.4G Ch", "2.4G EIRP", "2.4G STA"]]
+    ap_act_tbl = [
+        ["Name", "5G PHY", "5G Ch", "5G EIRP", "5G STA", "2.4G PHY", "2.4G Ch", "2.4G EIRP", "2.4G STA",
+         "6G PHY", "6G Ch", "6G EIRP", "6G STA"]]
     idx_r0 = ap_active_tbl[0].index("Radio 0 Band Ch/EIRP/MaxEIRP/Clients")
     idx_r1 = ap_active_tbl[0].index("Radio 1 Band Ch/EIRP/MaxEIRP/Clients")
+    try:
+        idx_r2 = ap_active_tbl[0].index("Radio 2 Band Ch/EIRP/MaxEIRP/Clients")
+    except ValueError:
+        idx_r2 = -1
+
     num_ch = defaultdict(lambda: 0)
     sta_ch = defaultdict(lambda: 0)
     usersperfloor = defaultdict(lambda: 0)
@@ -123,13 +134,10 @@ if __name__ == '__main__':
             r0_ch   = r.group(2)
             r0_eirp = float(r.group(3))
             r0_sta  = int(r.group(4))
-            num_ch[r0_ch] += 1
-            sta_ch[r0_ch] += r0_sta
+            num_ch['5G:'+r0_ch] += 1
+            sta_ch['5G:'+r0_ch] += r0_sta
         else:
-            r0_phy = ""
-            r0_ch = ""
-            r0_eirp = ""
-            r0_sta = ""
+            r0_phy = r0_ch = r0_eirp = r0_sta = ""
 
         r1 = row[idx_r1]
         r = re.match(r"(.+):([\dSE+\-]+)/([\d\.-]+)/[\d\.-]+/(\d+)$", r1)      # AP:2.4GHz-HE:11/8.0/27.7/0
@@ -138,16 +146,27 @@ if __name__ == '__main__':
             r1_ch   = r.group(2)
             r1_eirp = float(r.group(3))
             r1_sta  = int(r.group(4))
-            num_ch[r1_ch] += 1
-            sta_ch[r1_ch] += r1_sta
+            num_ch['2.4G:'+r1_ch] += 1
+            sta_ch['2.4G:'+r1_ch] += r1_sta
         else:
-            r1_phy = ""
-            r1_ch = ""
-            r1_eirp = ""
-            r1_sta = ""
+            r1_phy = r1_ch = r1_eirp = r1_sta = ""
 
+        if idx_r2 == -1:
+            r2_phy = r2_ch = r2_eirp = r2_sta = ""
+        else:
+            r2 = row[idx_r2]
+            r = re.match(r"(.+):([\dSE+\-]+)/([\d\.]+)/[\d\.]+/(\d+)$", r2)      # AP:6GHz-HE:85E/15.0/24.0/7
+            if r:
+                r2_phy  = r.group(1)
+                r2_ch   = r.group(2)
+                r2_eirp = float(r.group(3))
+                r2_sta  = int(r.group(4))
+                num_ch['6G:'+r2_ch] += 1
+                sta_ch['6G:'+r2_ch] += r2_sta
+            else:
+                r2_phy = r2_ch = r2_eirp = r2_sta = ""
 
-        ap_act_tbl.append([row[0], r0_phy, r0_ch, r0_eirp, r0_sta, r1_phy, r1_ch, r1_eirp, r1_sta])
+        ap_act_tbl.append([row[0], r0_phy, r0_ch, r0_eirp, r0_sta, r1_phy, r1_ch, r1_eirp, r1_sta, r2_phy, r2_ch, r2_eirp, r2_sta])
 
         #
         #  フロア毎のユーザ数集計
@@ -159,7 +178,7 @@ if __name__ == '__main__':
             fl = 'n/a'
             #print(f"Uknown floor: AP {row[0]} Group {row[1]}")
 
-        usersperfloor[fl] += toi(r0_sta) + toi(r1_sta)
+        usersperfloor[fl] += toi(r0_sta) + toi(r1_sta) + toi(r2_sta)
 
 
     print("Channel distribution")
@@ -180,10 +199,11 @@ if __name__ == '__main__':
 
     df1 = df_ap_database.merge(df_ap_act, how="left", left_on="Name", right_on="Name")
     df2 = df1[[
-        'Name', 'Group', 'AP Type', 'IP Address', 'Switch IP', 'Serial #',
+        'Name', 'Group', 'AP Type', 'IP Address', 'Switch IP',
         '5G PHY', '5G Ch', '5G EIRP', '5G STA',
         '2.4G PHY', '2.4G Ch', '2.4G EIRP', '2.4G STA',
-        'Wired MAC Address',
+        '6G PHY', '6G Ch', '6G EIRP', '6G STA',
+        'Serial #', 'Wired MAC Address',
     ]]
     #df = df2.sort_values(['Group', 'Name'])
     df = df2.sort_values(['Name'])
@@ -201,17 +221,17 @@ if __name__ == '__main__':
         for cell in row:
             cell.font = f
 
-    widths = [25, 30, 10, 20, 20, 13,   15, 10, 10, 10,   15, 10, 10, 10,  25]
+    widths = [25, 30, 10, 20, 20,   15, 10, 10, 10,   15, 10, 10, 10,   15, 10, 10, 10,  13, 25]
     for i,w in enumerate(widths):
         ws.column_dimensions[chr(65+i)].width = w
 
     f = Font(name='Arial', bold=True, size=9)
     s = PatternFill(fgColor="BDD7EE", fill_type="solid")
-    for cell in ws['A1':'O1'][0]:
+    for cell in ws['A1':'S1'][0]:
         cell.fill = s
         cell.font = f
 
-    ws.auto_filter.ref = "A:O"
+    ws.auto_filter.ref = "A:S"
     ws.freeze_panes = "A2"
 
 
