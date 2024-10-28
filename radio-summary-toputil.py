@@ -17,11 +17,14 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 import pandas as pd
 
-# APpat = "^APKUDKS|^APSMFTM"
-# APpat = "^APGTS"
-# APpat = "^APG7"
-# APpat = "^APUMEDA"
-# APpat = "^APHIBFS"
+# APpat = r"^APKUDKS|^APSMFTM"
+# APpat = r"^APGTS"
+# APpat = r"^APG7"
+# APpat = r"^APUMEDA"
+# APpat = r"^APHIBFS"
+# APpat = r"^E013-A02[3456]"
+APpat = r'SG-WA-F02|SG-WC-F02'
+# APpat = r'^idjktpsy'
 
 def atoi(s):
     m = re.match(r'(\d+)', s)
@@ -103,7 +106,7 @@ if __name__ == '__main__':
         apg = r[1]
         apt = r[2]
         band = r[4]
-        if band != '5GHz':
+        if band != '5GHz' and band != '5':
             continue
         mode = r[5]     # AP:VHT:56
         if mode == 'AM': continue
