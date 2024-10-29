@@ -9,7 +9,40 @@ import mylogger as log
 import argparse
 from aos_parser import AOSParser
 from collections import defaultdict
+from colorama import Fore, Style
 
+Color = True
+
+
+if Color:
+   GREEN = Fore.GREEN
+   CYAN = Fore.CYAN
+   RED = Fore.RED
+   MAGENTA = Fore.MAGENTA
+   BLUE = Fore.BLUE
+   YELLOW = Fore.YELLOW
+   RESET = Style.RESET_ALL
+else:
+    GREEN = ""
+    CYAN = ""
+    RED = ""
+    MAGENTA = ""
+    BLUE = ""
+    YELLOW = ""
+    RESET = ""
+
+
+def col_red(s, thresh, col=5):
+    if int(s) <= thresh:
+        return RED + f"{s:{col}}" + RESET
+    return f"{s:{col}}"
+
+def col_yel_red(s, thresh1, thresh2, col=5):
+    if int(s) <= thresh2:
+        return RED + f"{s:{col}}" + RESET
+    if int(s) <= thresh1:
+        return YELLOW + f"{s:{col}}" + RESET
+    return f"{s:{col}}"
 
 #
 #   main
@@ -34,11 +67,10 @@ if __name__ == '__main__':
     cols = ["MAC", "ESSID", "BSSID", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains"]
 
 
-    print("MAC                ESSID                 BSSID              Tx    Rx    SNR   TX_Chains")
-    print("---                -----                 -----              --    --    ---   ---------")
     #
     #   parse Client Table
     #
+    tbl = []
     for fn in args.infile:
         #print(f"Parsing file {fn} ... ", end="")
         try:
@@ -51,8 +83,17 @@ if __name__ == '__main__':
             print(f"Client Table not found in {fn}.")
             continue
 
-        for row in cli_tbl:
-            mac,essid,bssid,tx_rate,rx_rate,rx_snr,tx_chains = row
-            print(f'{mac}  {essid:20}  {bssid}  {tx_rate:5} {rx_rate:5} {rx_snr:5} {tx_chains}')
+        tbl.extend(cli_tbl)
+
+
+    #
+    #   print results
+    #
+    print("MAC                ESSID                 BSSID              Tx    Rx    SNR   TX_Chains")
+    print("---                -----                 -----              --    --    ---   ---------")
+
+    for row in tbl:
+        mac,essid,bssid,tx_rate,rx_rate,rx_snr,tx_chains = row
+        print(f'{mac}  {essid:20}  {bssid}  {col_red(tx_rate,54)} {col_red(rx_rate,54)} {col_yel_red(rx_snr,24,9)} {tx_chains}')
 
     sys.exit(0)
