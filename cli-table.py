@@ -41,12 +41,15 @@ if __name__ == '__main__':
     #
     for fn in args.infile:
         #print(f"Parsing file {fn} ... ", end="")
-        aos = AOSParser(fn, cmd)
+        try:
+            aos = AOSParser(fn, cmd)
+        except UnicodeDecodeError as e:
+            aos = AOSParser(fn, cmd, encoding='shift-jis')
 
         cli_tbl = aos.get_table(cmd, *cols)
         if cli_tbl is None:
-            print("Client Table not found.")
-            sys.exit(-1)
+            print(f"Client Table not found in {fn}.")
+            continue
 
         for row in cli_tbl:
             mac,essid,bssid,tx_rate,rx_rate,rx_snr,tx_chains = row
