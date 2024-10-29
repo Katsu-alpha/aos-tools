@@ -114,131 +114,136 @@ class AOSParser:
             data = fileinput.input(files, encoding=encoding)
 
         self.lno = 0
-        for line in data:
-            line = line.rstrip()
-            self.lno += 1
+        try:
+            for line in data:
+                line = line.rstrip()
+                self.lno += 1
 
-            if not in_cmd and "show " not in line:
-                continue            # optimize parse speed a bit
+                if not in_cmd and "show " not in line:
+                    continue            # optimize parse speed a bit
 
-            if not in_cont and in_cmd and "show " in line:
-                in_cmd = False
-                self.end_of_cmd()
-                # fall through
-
-            if not in_cmd:
-                for cmd in cmds:
-                    pat = cmd + "$"
-                    if re.search(pat, line):
-                        log.debug(self.file_line() + "Parsing " + cmd)
-                        in_cmd = True
-                        self.cur_cmd = cmd
-                        self.cur_table = []
-                        self.num = 0
-                        continue
-
-                continue
-
-            if in_cont:     # inside a table content
-                #
-                #   end of table check
-                #
-                if self.cur_cmd in (DATAPATH_SESSION_TABLE, DATAPATH_SESSION_DPI, DATAPATH_SESSION_INT, DATAPATH_USER):
-                    if line == '':
-                        continue        # skip blank line in datapath session table
-                    if re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
-                        continue        # skip entries start with MAC address
-                    if not line[0].isdigit():
-                        in_cmd = False
-                        in_cont = False
-                        self.end_of_cmd()
-                        continue
-                elif self.cur_cmd == DATAPATH_BRIDGE:
-                    if line == '':
-                        continue        # skip blank line in datapath bridge table
-                    if not re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
-                        in_cmd = False
-                        in_cont = False
-                        self.end_of_cmd()
-                        continue
-                elif self.cur_cmd == AP_ASSOCIATION_TABLE:
-                    if line.startswith("Num Clients:"):
-                        in_cmd = False
-                        in_cont = False
-                        self.end_of_cmd()
-                        continue
-                elif ('ap-list' in self.cur_cmd) or ('client-list' in self.cur_cmd):
-                    if line.startswith("Start:") or line.startswith("dt:Discovered"):
-                        in_cmd = False
-                        in_cont = False
-                        self.end_of_cmd()
-                        continue
-                elif line.startswith('end of '):
+                if not in_cont and in_cmd and "show " in line:
                     in_cmd = False
-                    in_cont = False
                     self.end_of_cmd()
+                    # fall through
+
+                if not in_cmd:
+                    for cmd in cmds:
+                        pat = cmd + "$"
+                        if re.search(pat, line):
+                            log.debug(self.file_line() + "Parsing " + cmd)
+                            in_cmd = True
+                            self.cur_cmd = cmd
+                            self.cur_table = []
+                            self.num = 0
+                            continue
+
                     continue
 
-                if line == '':          # end of a contents section
-                    in_cont = False
-                    continue
+                if in_cont:     # inside a table content
+                    #
+                    #   end of table check
+                    #
+                    if self.cur_cmd in (DATAPATH_SESSION_TABLE, DATAPATH_SESSION_DPI, DATAPATH_SESSION_INT, DATAPATH_USER):
+                        if line == '':
+                            continue        # skip blank line in datapath session table
+                        if re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
+                            continue        # skip entries start with MAC address
+                        if not line[0].isdigit():
+                            in_cmd = False
+                            in_cont = False
+                            self.end_of_cmd()
+                            continue
+                    elif self.cur_cmd == DATAPATH_BRIDGE:
+                        if line == '':
+                            continue        # skip blank line in datapath bridge table
+                        if not re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
+                            in_cmd = False
+                            in_cont = False
+                            self.end_of_cmd()
+                            continue
+                    elif self.cur_cmd == AP_ASSOCIATION_TABLE:
+                        if line.startswith("Num Clients:"):
+                            in_cmd = False
+                            in_cont = False
+                            self.end_of_cmd()
+                            continue
+                    elif ('ap-list' in self.cur_cmd) or ('client-list' in self.cur_cmd):
+                        if line.startswith("Start:") or line.startswith("dt:Discovered"):
+                            in_cmd = False
+                            in_cont = False
+                            self.end_of_cmd()
+                            continue
+                    elif line.startswith('end of '):
+                        in_cmd = False
+                        in_cont = False
+                        self.end_of_cmd()
+                        continue
 
-                #
-                #   split columns and add them to a list
-                #
-                row = [line[idx[i]:idx[i + 1]].rstrip() for i in range(len(idx) - 1)]
-                row.append(line[idx[-1]:].rstrip())
+                    if line == '':          # end of a contents section
+                        in_cont = False
+                        continue
 
-                #
-                #   apply some filter
-                #
-                if self.cur_cmd in (AP_DATABASE_TABLE, AP_DATABASE_LONG_TABLE):
-                    if activeonly and not row[idx_status].startswith("Up"):
-                        continue  # skip if Status is not 'Up'
-                elif self.cur_cmd == DATAPATH_SESSION_DPI:
-                    app = row[idx_app]
-                    if app.startswith(" "):
-                        row[idx_app] = "unknown"
-                    else:
-                        row[idx_app] = app.split(" ")[0]
+                    #
+                    #   split columns and add them to a list
+                    #
+                    row = [line[idx[i]:idx[i + 1]].rstrip() for i in range(len(idx) - 1)]
+                    row.append(line[idx[-1]:].rstrip())
 
-                self.cur_table.append(row)
-                self.num += 1
-                continue
-
-
-
-            #
-            #   inside supported show command output
-            #
-
-            if self.cur_cmd == 'show datapath bridge' and line.startswith('--- '):
-                continue    # skip the first table
-
-            if re.match("-+ +-", line):  # beginning of a content section
-                in_cont = True
-                idx = []
-                for r in re.finditer('-+', line):
-                    idx.append(r.span(0)[0])  # index of each separator string '----'
-
-                if len(self.cur_table) == 0:
-                    # the very first content section for a table... parse header
-                    hdr = prev_line  # save the first header line
-                    row = [hdr[idx[i]:idx[i + 1]].strip() for i in range(len(idx) - 1)]
-                    row.append(hdr[idx[-1]:].strip())
-
+                    #
+                    #   apply some filter
+                    #
                     if self.cur_cmd in (AP_DATABASE_TABLE, AP_DATABASE_LONG_TABLE):
-                        idx_status = row.index("Status")
+                        if activeonly and not row[idx_status].startswith("Up"):
+                            continue  # skip if Status is not 'Up'
                     elif self.cur_cmd == DATAPATH_SESSION_DPI:
-                        idx_app = row.index("AppID")
+                        app = row[idx_app]
+                        if app.startswith(" "):
+                            row[idx_app] = "unknown"
+                        else:
+                            row[idx_app] = app.split(" ")[0]
+
                     self.cur_table.append(row)
+                    self.num += 1
+                    continue
 
-            else:
-                prev_line = line
 
-        # EOF
-        if in_cmd:
-            self.end_of_cmd()
+
+                #
+                #   inside supported show command output
+                #
+
+                if self.cur_cmd == 'show datapath bridge' and line.startswith('--- '):
+                    continue    # skip the first table
+
+                if re.match("-+ +-", line):  # beginning of a content section
+                    in_cont = True
+                    idx = []
+                    for r in re.finditer('-+', line):
+                        idx.append(r.span(0)[0])  # index of each separator string '----'
+
+                    if len(self.cur_table) == 0:
+                        # the very first content section for a table... parse header
+                        hdr = prev_line  # save the first header line
+                        row = [hdr[idx[i]:idx[i + 1]].strip() for i in range(len(idx) - 1)]
+                        row.append(hdr[idx[-1]:].strip())
+
+                        if self.cur_cmd in (AP_DATABASE_TABLE, AP_DATABASE_LONG_TABLE):
+                            idx_status = row.index("Status")
+                        elif self.cur_cmd == DATAPATH_SESSION_DPI:
+                            idx_app = row.index("AppID")
+                        self.cur_table.append(row)
+
+                else:
+                    prev_line = line
+
+            # EOF
+            if in_cmd:
+                self.end_of_cmd()
+
+        except UnicodeDecodeError as e:
+            fileinput.close()
+            raise e
 
     def get_num_tables(self, cmd):
         if cmd not in self.tables:
@@ -252,13 +257,12 @@ class AOSParser:
         :param cols: 取得したい列名
         :return: コマンド結果テーブル
         '''
-        if cmd not in self.tables or len(self.tables[cmd])==0:
+        if cmd not in self.tables:
             return None
+        if len(self.tables[cmd])==0:
+            return []
         if len(cols) != 0:
-            tbl = []
-            for row in _get_cols_gen(self.tables[cmd][0], *cols):
-                tbl.append(row)
-            return tbl
+            return list(_get_cols_gen(self.tables[cmd][0], *cols))
         return self.tables[cmd][0]
 
     def get_tables(self, cmd, *cols):
