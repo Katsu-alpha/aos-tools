@@ -117,9 +117,9 @@ if __name__ == '__main__':
         ws.column_dimensions[chr(65+i)].width = w
 
     f = Font(name='Arial', bold=True, size=9)
-    s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+    Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
     for cell in ws['A1':'E1'][0]:
-        cell.fill = s
+        cell.fill = Ses
         cell.font = f
 
     ws.auto_filter.ref = "A:E"

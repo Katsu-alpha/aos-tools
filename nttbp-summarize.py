@@ -529,19 +529,19 @@ for fn in args.files:
     #
 
     row = [c.name, model, version, len(apg_set), len(ap_db_tbl)]
-    s = ''
+    Ses = ''
     for k in sorted(aptype_count.keys()):
-        s += f'AP-{k} x {aptype_count[k]}\n'
-    row.append(s[:-1])
+        Ses += f'AP-{k} x {aptype_count[k]}\n'
+    row.append(Ses[:-1])
 
     row.append(len(vap_count))    # SSID 数
 
     #   List of SSIDs
-    s = ''
+    Ses = ''
     for i in sorted(vap_count.keys()):  # (ssid, opmode, fwd-mode)
         tmp = f'{i[0]} [{vap_count[i]}]'
-        s += f"{tmp:28} ({i[1]}/{i[2]})\n"
-    row.append(s[:-1])
+        Ses += f"{tmp:28} ({i[1]}/{i[2]})\n"
+    row.append(Ses[:-1])
 
     #   Static Ch APs
     row.append(num_static)
@@ -569,8 +569,8 @@ for fn in args.files:
             _reg += 1
         if apn.misc:
             _misc += 1
-            for s in apn.misc:
-                _misc_set.add(s)
+            for Ses in apn.misc:
+                _misc_set.add(Ses)
 
     row.extend([_vaps, _excl, _arm, _radio_disable, _reg, _misc, '\n'.join(sorted(_misc_set))])
 
@@ -602,9 +602,9 @@ for i, w in enumerate(widths):
 
 #   Header format
 f = Font(name='Arial', bold=True, size=9)
-s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
 for cell in ws[1]:
-    cell.fill = s
+    cell.fill = Ses
     cell.font = f
 
 ws.auto_filter.ref = "A:" + get_column_letter(ws.max_column)
@@ -648,11 +648,11 @@ results = []
 for vap in sorted(controller_sets.keys()):
     row = [ vap[0], vap[1], vap[2], global_vap_count[vap], '\n'.join(sorted(controller_sets[vap])) ]
 
-    s = ''
+    Ses = ''
     for i in sorted(coex_vaps_sets[vap]):
         tmp = f"{i[0]} [{coex_vaps_count[vap][i]}]"
-        s += f"{tmp:35} ({i[1]}/{i[2]})\n"
-    row.append(s[:-1])
+        Ses += f"{tmp:35} ({i[1]}/{i[2]})\n"
+    row.append(Ses[:-1])
     results.append(row)
 
 df = pd.DataFrame(results,
@@ -674,9 +674,9 @@ for i, w in enumerate(widths):
 
 #   Header format
 f = Font(name='Arial', bold=True, size=9)
-s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
 for cell in ws[1]:
-    cell.fill = s
+    cell.fill = Ses
     cell.font = f
 
 ws.auto_filter.ref = "A:" + get_column_letter(ws.max_column)

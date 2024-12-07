@@ -53,11 +53,11 @@ if __name__ == '__main__':
                 diff[pos] = val - ctr[cpu][opcode][pos]
                 ctr[cpu][opcode][pos] = val
 
-            s = ''
+            Ses = ''
             for pos, val in diff.items():
-                s += ' ' * (pos - len(s))
-                s += f'{val:>+8}'
-            print(s)
+                Ses += ' ' * (pos - len(Ses))
+                Ses += f'{val:>+8}'
+            print(Ses)
             continue
 
         # datapath papi counters

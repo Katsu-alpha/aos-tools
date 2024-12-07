@@ -10,6 +10,21 @@ import argparse
 import mylogger as log
 from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
 from collections import defaultdict
+import matplotlib.pyplot as plt
+
+APpat = r'^(hvnap[0-9b]+|HVNAP[0-9b]+)'
+DrawGraph = False
+
+#
+#   get floor name
+#
+def floorname(apn):
+    # m = re.search(r'Floor_(\d\d)', apn)
+    m = re.search(r'hvnap([0-9b]+)fap', apn, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    else:
+        return 'n/a'
 
 
 def uniq(tbl, col=0):
@@ -20,6 +35,17 @@ def uniq(tbl, col=0):
         k.add(r[col])
         ret.append(r)
     return ret
+
+
+wedgep = {'edgecolor': 'white', 'linewidth': 0.5}
+textp = {'fontsize': 20, 'fontweight': 'bold'}
+
+def drawpie(ax, data, colors):
+    global wedgep, textp
+    patches, texts, pcts = ax.pie(
+        data.values(), labels=data.keys(), autopct='%1.1f%%', colors=colors, wedgeprops=wedgep, textprops=textp)
+    for i, p in enumerate(patches):
+        texts[i].set_color(p.get_facecolor())
 
 
 #
@@ -58,7 +84,7 @@ if __name__ == '__main__':
 
     assoc_table = uniq(assoc_table, 2)
     bss_table = uniq(bss_table)
-    print(f"done. {len(assoc_table)-1} STAs found.")
+    print(f"done.")
 
     #
     #   create MAC -> OS Type map
@@ -67,22 +93,16 @@ if __name__ == '__main__':
     apnctr = defaultdict(lambda: 0)
     flrctr = defaultdict(lambda: 0)
     for r in user_table[1:]:
-        mac = r[1]
         apn = r[7]
+        if 'APpat' in globals() and not re.search(APpat, apn):
+            continue
+
+        mac = r[1]
         apnctr[apn] += 1
+        flrctr[floorname(apn)] += 1
 
-        # m = re.match(r'idjktpsy0(\d)', apn)
-        # if m:
-        #     fl = int(m.group(1))
-        #     flrctr[fl] += 1
-        m = re.search(r'Floor_(\d\d)', apn)
-        if m:
-            fl = int(m.group(1))
-            flrctr[fl] += 1
-
-        os = r[12]
-        if os != "":
-            mac2os[mac] = os
+        os = r[12] or 'unknown'
+        mac2os[mac] = os
 
     #
     #   create BSS -> channel map
@@ -100,7 +120,7 @@ if __name__ == '__main__':
     #
     #   phy_cap カウント
     #
-    n = len(assoc_table)-1
+    numsta = 0
     num5G = 0
     num2G = 0
     numht = 0
@@ -112,11 +132,14 @@ if __name__ == '__main__':
     essctrphy = defaultdict(lambda: [0, 0])
     chctr = defaultdict(lambda: 0)
     for r in assoc_table[1:]:
+        if 'APpat' in globals() and not re.search(APpat, r[0]):
+            continue
+
+        numsta += 1
         bss = r[1]
         mac = r[2]
         essid = r[7]
         phycap = r[15]
-
 
         is5G = True if "5GHz" in phycap else False
         isht = True if "-HT-" in phycap else False
@@ -142,16 +165,13 @@ if __name__ == '__main__':
             ss = 0
         numss[ss]+=1
 
-        if mac in mac2os:
-            os = mac2os[mac]
-        else:
-            os = "unknown"
+        os = mac2os.get(mac, 'unknown')
         os_numss[os][ss] += 1
 
         chctr[bss2ch[bss]] += 1
 
-    print(f"2.4GHz:{num2G}, 5GHz:{num5G}")
-    print(f"non-HT:{n-numht-numvht-numhe}, HT:{numht}, VHT:{numvht}, HE:{numhe}")
+    print(f"2.4GHz:{num2G}, 5GHz:{num5G}, Total:{numsta}")
+    print(f"non-HT:{numsta-numht-numvht-numhe}, HT:{numht}, VHT:{numvht}, HE:{numhe}")
     print(f"1ss:{numss[1]}, 2ss:{numss[2]}, 3ss:{numss[3]}, 4ss:{numss[4]}")
 
     print()
@@ -165,9 +185,9 @@ if __name__ == '__main__':
     for ess, n in essctr.items():
         print(f"{ess:20}: {n} ({essctrphy[ess][0]}/{essctrphy[ess][1]})")
 
-    print("\nTop 20 populated APs (based on L3 user table)")
-    for apn in sorted(apnctr.keys(), key=lambda x:apnctr[x], reverse=True)[:20]:
-        print(f"{apn:15}: {apnctr[apn]}")
+    # print("\nTop 20 populated APs (based on L3 user table)")
+    # for apn in sorted(apnctr.keys(), key=lambda x:apnctr[x], reverse=True)[:20]:
+    #     print(f"{apn:15}: {apnctr[apn]}")
 
     print("\nClients per Floor (based on L3 user table)")
     for fl in sorted(flrctr.keys()):
@@ -177,3 +197,27 @@ if __name__ == '__main__':
     for ch in sorted(chctr.keys()):
         print(f"{ch}: {chctr[ch]}  ", end="")
     print()
+
+    #
+    #   draw pie chart
+    #
+    if DrawGraph:
+        band = {'2.4GHz': num2G, '5GHz': num5G}
+        gen = {'HT(11n)': numht, 'VHT(11ac)': numvht, 'HE(11ax)': numhe}
+        ss = {f"{i}ss": numss[i] for i in range(1, 4)}
+        # colors = ['#ff9999', '#66b3ff', '#99ff99', '#ffcc99']
+        # colors2 = ['#ff9999', '#99ff99', '#66b3ff']
+        colors = ['tomato', 'deepskyblue', 'springgreen', '#99ff99', '#ffcc99']
+        colors2 = ['tomato', 'limegreen', 'deepskyblue']
+
+        fig, axs = plt.subplots(3, 1, figsize=(6, 12))
+        drawpie(axs[0], band, colors)
+        # axs[0].set_title('Band distribution')
+
+        drawpie(axs[1], gen, colors2)
+        # axs[1].set_title('Generation distribution')
+
+        drawpie(axs[2], ss, colors)
+        # axs[2].set_title('Spatial Stream distribution')
+        plt.tight_layout()
+        plt.show()

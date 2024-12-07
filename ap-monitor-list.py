@@ -86,7 +86,12 @@ chset = {
     '153E': {'149', '153', '157', '161'},
     '157E': {'149', '153', '157', '161'},
     '161E': {'149', '153', '157', '161'},
+    '36S': {'36', '40', '44', '48', '52', '56', '60', '64'},
+    '48S': {'36', '40', '44', '48', '52', '56', '60', '64'},
     '60S': {'36', '40', '44', '48', '52', '56', '60', '64'},
+    '64S': {'36', '40', '44', '48', '52', '56', '60', '64'},
+    '100S': {'100', '104', '108', '112', '116', '120', '124', '128'},
+    '149S': {'149', '153', '157', '161', '165'},
 }
 
 for i in [36, 40, 44, 48, 52, 56, 60, 64, 100, 104, 108, 112, 116, 120, 124, 128, 132, 136, 140, 144, 149, 153, 157, 161, 165]:
@@ -104,7 +109,7 @@ def isIntf(ch1, ch2):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description="Join 'show ap database' and 'show ap active' tables and write the result to an MS Excel file")
+        description="Parse 'show ap monitor ap-list' and sort valid/intf APs with SNR descending order")
     parser.add_argument('infile', help="Input file containing 'show ap monitor ap-list' output", type=str, nargs='+')
     #parser.add_argument('outfile', help='Output Excel file', type=str, nargs='?', default='')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
@@ -266,9 +271,9 @@ if __name__ == '__main__':
         ws.column_dimensions[chr(65+i)].width = w
 
     f = Font(name='Arial', bold=True, size=9)
-    s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+    Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
     for cell in ws['A1':'L1'][0]:
-        cell.fill = s
+        cell.fill = Ses
         cell.font = f
 
     ws.auto_filter.ref = "A:L"

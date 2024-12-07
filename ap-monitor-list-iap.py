@@ -89,9 +89,9 @@ if __name__ == '__main__':
 
     # Header font and color
     f = Font(name='Arial', bold=True, size=9)
-    s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+    Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
     for cell in ws['A1':'I1'][0]:
-        cell.fill = s
+        cell.fill = Ses
         cell.font = f
 
     ws.auto_filter.ref = "A:I"

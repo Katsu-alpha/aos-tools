@@ -86,7 +86,7 @@ if __name__ == '__main__':
 
 
     cmd = "show ap debug client-table .+"
-    cols = ["MAC", "ESSID", "BSSID", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains"]
+    cols = ["MAC", "ESSID", "BSSID", "Tx_Pkts", "Tx_Retries", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains"]
 
 
     #
@@ -111,14 +111,14 @@ if __name__ == '__main__':
     #
     #   print results
     #
-    print("MAC                ESSID                 BSSID              Tx    Rx    SNR   TX_Chains")
-    print("---                -----                 -----              --    --    ---   ---------")
+    print("MAC                ESSID                 BSSID              Retry(%)  Tx    Rx   SNR   TX_Chains")
+    print("---                -----                 -----              --------  --    --   ---   ---------")
 
     tx_hist = [0] * len(rate_buckets)
     rx_hist = [0] * len(rate_buckets)
     snr_hist = [0] * len(snr_buckets)
     for row in sorted(tbl, key=lambda x: int(x[5]), reverse=True):
-        mac,essid,bssid,tx_rate,rx_rate,rx_snr,tx_chains = row
+        mac,essid,bssid,tx_pkts,tx_retr,tx_rate,rx_rate,rx_snr,tx_chains = row
 
         # rate histogram (count only 2SS clients)
         if tx_chains.startswith('2'):
@@ -127,8 +127,16 @@ if __name__ == '__main__':
 
         snr_hist[snr_idx(int(rx_snr))+1] += 1
 
+        # calculate retry rate
+        tx_pkts = int(tx_pkts)
+        tx_retr = int(tx_retr)
+        if tx_pkts > 300:
+            retr_rate = f"{tx_retr / tx_pkts * 100:.1f}%"
+        else:
+            retr_rate = 'n/a'
+
         # print row
-        print(f'{mac}  {essid:20}  {bssid}  {col_red(tx_rate,54)} {col_red(rx_rate,54)} {col_yel_red(rx_snr,24,9)} {tx_chains}')
+        print(f'{mac}  {essid:20}  {bssid}  {retr_rate:>7}  {col_red(tx_rate,54)} {col_red(rx_rate,54)}  {col_yel_red(rx_snr,24,9)} {tx_chains}')
 
 
 

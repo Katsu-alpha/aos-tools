@@ -16,8 +16,10 @@ from collections import defaultdict
 # APpat = "^APKUDKS|^APSMFTM"
 # APpat = "^APGTS"
 # APpat = "^APG7"
-APpat = "^APUMEDA"
+# APpat = "^APUMEDA"
 # APpat = "^APHIBFS"
+APpat = "^E013-A02[3456]"
+
 SNR_THRESHOLD = 30
 
 def fln():
@@ -46,7 +48,8 @@ def getfloor(apn, apg):
     global grp2flr
 
     # m = re.search(r'GTS(\d\d)', apg)
-    m = re.match(r'APUMEDA(\d\d)', apn)
+    # m = re.match(r'APUMEDA(\d\d)', apn)
+    m = re.match(r'E(\d\d\d)', apn)
     if m:
         return m.group(1)
     else:
@@ -79,12 +82,14 @@ def parse_nbr_data(out, myapn, mych):
             continue
 
         snr = int(r[2])
-        r = re.match(r'(\d+)/([\d\.]+)', r[5])
-        if r:
-            ch = r.group(1)
-            pwr = r.group(2)
+        m = re.match(r'(\d+)[+-]?/([\d\.]+)', r[5])
+        if not m:
+            m = re.match(r'(\d+)[+-]?/([\d\.]+)', r[4])
+        if m:
+            ch = m.group(1)
+            pwr = m.group(2)
         else:
-            print(f"Can't parse Ch/EIRP: {r[5]}")
+            print("Can't parse Ch/EIRP.")
             exit()
 
         if snr >= SNR_THRESHOLD:
@@ -160,10 +165,12 @@ if __name__ == '__main__':
         # cont == 0
         if not l.startswith('AP:'): continue
 
-        r = re.match(r'AP:([\w-]+) MAC:[:\w]+ Band:5GHz Channel:(\d+)+', l)
+        r = re.match(r'AP:([\w-]+) MAC:[:\w]+.* Channel:(\d+[SE+-]?)+', l)
         if r:
             apn = r.group(1)
             ch = r.group(2)
+            if int(re.sub(r'[SE+-]', '', ch)) < 36:
+                continue
             cont = 1
             out = ["show ap arm state\n"]
             continue

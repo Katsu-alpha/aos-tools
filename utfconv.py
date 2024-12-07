@@ -30,9 +30,9 @@ for fn in args.infile:
 
     print("Converting to UTF-8...", end="")
     with open(fn, encoding=enc) as f:
-        s = f.read()
+        Ses = f.read()
 
-    s = s.replace('\r', '')
+    Ses = Ses.replace('\r', '')
     with open(fn, 'w', encoding='utf-8') as f:
-        f.write(s)
+        f.write(Ses)
     print("Done.")

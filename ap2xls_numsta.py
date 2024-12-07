@@ -24,7 +24,8 @@ from collections import defaultdict
 # APpat = "^MICL5"
 # APpat = "^E013-A02[3456]"
 # APpat = r'SG-WA-F02|SG-WC-F02'
-APpat = r'^wse'
+# APpat = r'^wse'
+APpat = r'^(hvnap[0-9b]+|HVNAP[0-9b]+)'
 
 def uniq(tbl):
     ret = []
@@ -122,9 +123,11 @@ if __name__ == '__main__':
     num_ch = defaultdict(lambda: 0)
     sta_ch = defaultdict(lambda: 0)
     usersperfloor = defaultdict(lambda: 0)
+    apsperfloor = defaultdict(lambda: 0)
 
     for row in ap_active_tbl[1:]:
-        if 'APpat' in globals() and not re.search(APpat, row[0]):
+        apn = row[0]
+        if 'APpat' in globals() and not re.search(APpat, apn):
             continue
 
         r0 = row[idx_r0]
@@ -166,18 +169,20 @@ if __name__ == '__main__':
             else:
                 r2_phy = r2_ch = r2_eirp = r2_sta = ""
 
-        ap_act_tbl.append([row[0], r0_phy, r0_ch, r0_eirp, r0_sta, r1_phy, r1_ch, r1_eirp, r1_sta, r2_phy, r2_ch, r2_eirp, r2_sta])
+        ap_act_tbl.append([apn, r0_phy, r0_ch, r0_eirp, r0_sta, r1_phy, r1_ch, r1_eirp, r1_sta, r2_phy, r2_ch, r2_eirp, r2_sta])
 
         #
         #  フロア毎のユーザ数集計
         #
-        m = re.match(r'(\w+\d\d)', row[1])
+        # m = re.match(r'(\w+\d\d)', row[1])
+        m = re.search(r'hvnap([0-9b]+)fap', apn, re.IGNORECASE)
         if m:
             fl = m.group(1)
         else:
             fl = 'n/a'
             #print(f"Uknown floor: AP {row[0]} Group {row[1]}")
 
+        apsperfloor[fl] += 1
         usersperfloor[fl] += toi(r0_sta) + toi(r1_sta) + toi(r2_sta)
 
 
@@ -186,9 +191,9 @@ if __name__ == '__main__':
     for ch in sorted(num_ch.keys()):
         print(f"{ch}: {num_ch[ch]} ({sta_ch[ch]})")
 
-    print("\nUsers per floor")
+    print("\nUsers/APs per floor")
     for fl in sorted(usersperfloor.keys()):
-        print(f"{fl}: {usersperfloor[fl]}")
+        print(f"{fl}: {usersperfloor[fl]} users/{apsperfloor[fl]} APs")
 
 
     #
@@ -226,9 +231,9 @@ if __name__ == '__main__':
         ws.column_dimensions[chr(65+i)].width = w
 
     f = Font(name='Arial', bold=True, size=9)
-    s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+    Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
     for cell in ws['A1':'S1'][0]:
-        cell.fill = s
+        cell.fill = Ses
         cell.font = f
 
     ws.auto_filter.ref = "A:S"

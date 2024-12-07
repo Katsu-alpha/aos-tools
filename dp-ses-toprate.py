@@ -59,7 +59,6 @@ if __name__ == '__main__':
         sys.exit(-1)
     print(f"done. {len(dp_ses)-1} session entries found.")
 
-
     #
     #   parse user-table and create IP to AP Name mapping
     #

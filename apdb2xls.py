@@ -60,9 +60,9 @@ if __name__ == '__main__':
         ws.column_dimensions[chr(65+i)].width = w
 
     f = Font(name="Consolas", size=10, bold=True)
-    s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+    Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
     for cell in ws['A1':'G1'][0]:
-        cell.fill = s
+        cell.fill = Ses
         cell.font = f
 
     ws.auto_filter.ref = "A:G"

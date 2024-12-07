@@ -451,11 +451,11 @@ for apg in sorted(apg_apcount.keys()):
         print_warn(f"No active VAP in group '{apg}'")
         continue
     row = [apg, '\n'.join(sorted(apg_controllers[apg])), apg_apcount[apg], len(apg_vaps[apg])]
-    s = ''
+    Ses = ''
     for i in sorted(apg_vaps[apg]):  # (ssid, opmode, fwd-mode)
         tmp = f'{i[0]} [{vap_count[apg][i]}]'
-        s += f"{tmp:28} ({i[1]}/{i[2]})\n"
-    row.append(s[:-1])
+        Ses += f"{tmp:28} ({i[1]}/{i[2]})\n"
+    row.append(Ses[:-1])
     results.append(row)
 
 df = pd.DataFrame(results, columns=['Group', 'Controllers', 'AP count', 'Num SSIDs', 'SSIDs'])
@@ -475,9 +475,9 @@ for i, w in enumerate(widths):
 
 #   Header format
 f = Font(name='Arial', bold=True, size=9)
-s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
 for cell in ws[1]:
-    cell.fill = s
+    cell.fill = Ses
     cell.font = f
 
 ws.auto_filter.ref = "A:" + get_column_letter(ws.max_column)

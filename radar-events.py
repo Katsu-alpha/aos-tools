@@ -12,8 +12,8 @@ import datetime
 from collections import defaultdict
 
 #APpat = "^APKUD|^APSMFTM"
-# APpat = r" (APGTS(\d\d)\d\d)$"
-APpat = r"(GTS3805|GTS3815|GTS3817|GTS3825|GTS3829|GTS3831|GTS3831|GTS3835|GTS3840)"
+APpat = r" (APGTS\d\d\d\d)$"
+# APpat = r"(GTS3805|GTS3815|GTS3817|GTS3825|GTS3829|GTS3831|GTS3831|GTS3835|GTS3840)"
 
 #
 #   main
@@ -46,10 +46,10 @@ if __name__ == '__main__':
             continue
         apn = m.group(1)
         # fl = m.group(2)
-        fl = apn[3:5]
+        fl = apn[5:7]
         fli = int(fl)
-        if fli < 34 or fli > 38:    # 34F-38F AP のみ集計
-            continue
+        # if fli < 34 or fli > 38:    # 34F-38F AP のみ集計
+        #     continue
 
         m = re.search(r'(\d\d\d\d-\d\d-\d\d_\d\d):\d\d:\d\d +(\d+)', l)
         if not m:

@@ -21,6 +21,11 @@ from collections import defaultdict
 # APpat = "^APG7"
 # APpat = r"^APUMEDA"
 # APpat = r"^APHIBFS"
+# APpat = r"^E013-A02[123]"
+# APpat = r"^wsm"
+# APpat = r'SG-WA-F02|SG-WC-F02'
+# APpat = r'hvnap\d+|HVNAP\d+'
+APpat = r'hvnap15f|HVNAP15F'
 
 def fln():
     return fileinput.filename() + ":" + str(fileinput.filelineno())
@@ -129,7 +134,7 @@ def parse_nbr_data(out, myapn, mych):
             pwr = m.group(2)
         else:
             print(f"Can't parse Ch/EIRP: {fileinput.filelineno()}: {r[5]}")
-            exit()
+            continue
 
         if ch in intf_ch[mych]:
             tbl2.append([apn, snr, ch, pwr])
@@ -154,7 +159,8 @@ def parse_nbr_data(out, myapn, mych):
     # フロア名取得
     # fl = grp2flr[apg[:15]]
     # fl = apg[5:7]
-    fl = myapn[3:5]
+    # fl = myapn[3:5]
+
     # m = re.search(r'KUDKS(\d+)', apg)
     # if m:
     #     fl = m.group(1)
@@ -167,11 +173,11 @@ def parse_nbr_data(out, myapn, mych):
     #         # sys.exit(-1)
     #         fl = "n/a"
 
-    # m = re.match(r'GTS(\d+)', apg)
-    # if m:
-    #     fl = m.group(1)
-    # else:
-    #     fl = "n/a"
+    m = re.search(r'(\d+)[fF]', myapn)
+    if m:
+        fl = m.group(1)
+    else:
+        fl = "n/a"
 
     flrctr[fl] += 1
     flritf[fl] += nintf

@@ -82,10 +82,10 @@ if __name__ == '__main__':
             cell.font = f
 
     f = Font(name='Calibri', bold=True)
-    s = PatternFill(fgColor="BDD7EE", fill_type="solid")
+    Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
     for cell in ws[1]:
         cell.font = f
-        cell.fill = s
+        cell.fill = Ses
 
     f1 = PatternFill(fgColor="FFE5E8", fill_type="solid")
     f2 = PatternFill(fgColor="FFC7CE", fill_type="solid")

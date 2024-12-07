@@ -23,8 +23,12 @@ import pandas as pd
 # APpat = r"^APUMEDA"
 # APpat = r"^APHIBFS"
 # APpat = r"^E013-A02[3456]"
-APpat = r'SG-WA-F02|SG-WC-F02'
+# APpat = r'SG-WA-F02|SG-WC-F02'
 # APpat = r'^idjktpsy'
+APpat = r'^(hvnap[0-9b]+|HVNAP[0-9b]+)'
+
+
+Band = "2.4"
 
 def atoi(s):
     m = re.match(r'(\d+)', s)
@@ -106,7 +110,7 @@ if __name__ == '__main__':
         apg = r[1]
         apt = r[2]
         band = r[4]
-        if band != '5GHz' and band != '5':
+        if not band.startswith(Band):
             continue
         mode = r[5]     # AP:VHT:56
         if mode == 'AM': continue
