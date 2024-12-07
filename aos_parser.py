@@ -29,14 +29,90 @@ DATAPATH_SESSION_INT = "show datapath session internal"
 DATAPATH_USER = "show datapath user table"
 DATAPATH_BRIDGE = "show datapath bridge table"
 
+
+#
+#   helper functions
+#
 def _get_cols_gen(tbl, *cols):
     idx = [tbl[0].index(col) for col in cols]
     if len(cols) == 1:
         for row in tbl[1:]:
-            yield(row[idx[0]])
+            yield row[idx[0]]
     else:
         for row in tbl[1:]:
-            yield(list(row[i] for i in idx))
+            yield [row[i] for i in idx]
+
+
+def table2str(table):
+    if len(table) < 2:
+        return ""
+
+    max_col_widths = [0] * len(table[0])
+    for row in table:
+        max_col_widths = list(map(max, max_col_widths, map(len, row)))
+
+    fmt = ""
+    for i in range(len(max_col_widths)-1):
+        fmt += "{:" + str(max_col_widths[i]) + "}  "
+    fmt += "{}"
+
+    s = [fmt.format(*row) for row in table]
+    return "\n".join(s) + "\n"
+
+
+def table2csv(table):
+    if len(table) < 2:
+        return ""
+
+    s = [",".join(row) for row in table]
+    return "\n".join(s) + "\n"
+
+
+def write_table(table, fn):
+    if len(table) < 2:
+        log.info(f"No data written to {fn}.")
+        return True
+
+    with open(fn, mode="w") as f:
+        f.write(table2str(table))
+
+    log.info(f"{len(table)-1} records written to {fn}.")
+    return True
+
+
+def write_table_csv(table, fn):
+    if len(table) < 2:
+        log.info(f"No data written to {fn}.")
+        return True
+
+    with open(fn, mode="w") as f:
+        f.write(table2csv(table))
+
+    log.info(f"{len(table)-1} records written to {fn}.")
+    return True
+
+
+def cols2str(table, *col_names):
+    if len(col_names) == 0 or col_names[0] == '*':
+        return table2str(table)
+
+    max_col_widths = [0] * len(table[0])
+    for row in table:
+        max_col_widths = list(map(max, max_col_widths, map(len, row)))
+
+    idx = [table[0].index(col) for col in col_names]
+    fmt = ""
+    for i in idx[:-1]:
+        fmt += "{:" + str(max_col_widths[i]) + "}  "
+    fmt += "{}"
+
+    s = []
+    for row in table:
+        r2 = [row[i] for i in idx]
+        s.append(fmt.format(*r2))
+
+    return "\n".join(s) + "\n"
+
 
 class AOSParser:
     """
@@ -58,10 +134,14 @@ class AOSParser:
         cur_table を辞書の配列 tables に追加するか、merge=True の場合はマージする
         :return:
         '''
-        log.debug(str(self.num) + " entries found.")
-        if self.num == 0:
+
+        self.in_cmd = False
+        self.in_cont = False
+        if len(self.cur_table) <= 1:
+            log.info(f"No entries found for '{self.cur_cmd}'.")
             return
-        self.num = 0
+        log.debug(f"{len(self.cur_table)-1} entries found in '{self.cur_cmd}'.")
+
         if not self.isMerge:
             self.tables[self.cur_cmd].append(self.cur_table)    # 表の配列に追加
             return
@@ -70,7 +150,7 @@ class AOSParser:
             self.tables[self.cur_cmd].append(self.cur_table)
             return
 
-        log.debug(f"Merging table of '{self.cur_cmd}'...")
+        log.debug(f"Merging table '{self.cur_cmd}'...")
         tbl = self.tables[self.cur_cmd][0]     # マージ先2次元配列
         if len(tbl[0]) != len(self.cur_table[0]):
             log.err(f"Can't merge the output for '{self.cur_cmd}'. Num of columns does not match: {len(self.cur_table[0])} vs {len(tbl[0])}.")
@@ -99,8 +179,8 @@ class AOSParser:
         for cmd in cmds:
             self.tables[cmd] = []
 
-        in_cmd  = False
-        in_cont = False
+        self.in_cmd  = False
+        self.in_cont = False
 
         self.fromfile = True
         if type(files) == str:
@@ -119,28 +199,27 @@ class AOSParser:
                 line = line.rstrip()
                 self.lno += 1
 
-                if not in_cmd and "show " not in line:
+                if not self.in_cmd and "show " not in line:
                     continue            # optimize parse speed a bit
 
-                if not in_cont and in_cmd and "show " in line:
-                    in_cmd = False
+                if not self.in_cont and self.in_cmd and "show " in line:
                     self.end_of_cmd()
                     # fall through
 
-                if not in_cmd:
+                # found matching show command
+                if not self.in_cmd:
                     for cmd in cmds:
                         pat = cmd + "$"
                         if re.search(pat, line):
                             log.debug(self.file_line() + "Parsing " + cmd)
-                            in_cmd = True
+                            self.in_cmd = True
                             self.cur_cmd = cmd
                             self.cur_table = []
-                            self.num = 0
                             continue
 
                     continue
 
-                if in_cont:     # inside a table content
+                if self.in_cont:     # inside a table content
                     #
                     #   end of table check
                     #
@@ -150,38 +229,28 @@ class AOSParser:
                         if re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
                             continue        # skip entries start with MAC address
                         if not line[0].isdigit():
-                            in_cmd = False
-                            in_cont = False
                             self.end_of_cmd()
                             continue
                     elif self.cur_cmd == DATAPATH_BRIDGE:
                         if line == '':
                             continue        # skip blank line in datapath bridge table
                         if not re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
-                            in_cmd = False
-                            in_cont = False
                             self.end_of_cmd()
                             continue
                     elif self.cur_cmd == AP_ASSOCIATION_TABLE:
                         if line.startswith("Num Clients:"):
-                            in_cmd = False
-                            in_cont = False
                             self.end_of_cmd()
                             continue
                     elif ('ap-list' in self.cur_cmd) or ('client-list' in self.cur_cmd):
                         if line.startswith("Start:") or line.startswith("dt:Discovered"):
-                            in_cmd = False
-                            in_cont = False
                             self.end_of_cmd()
                             continue
                     elif line.startswith('end of '):
-                        in_cmd = False
-                        in_cont = False
                         self.end_of_cmd()
                         continue
 
                     if line == '':          # end of a contents section
-                        in_cont = False
+                        self.in_cont = False
                         continue
 
                     #
@@ -204,20 +273,19 @@ class AOSParser:
                             row[idx_app] = app.split(" ")[0]
 
                     self.cur_table.append(row)
-                    self.num += 1
                     continue
 
 
 
                 #
-                #   inside supported show command output
+                #   inside supported show command output, but not in a content section
                 #
 
                 if self.cur_cmd == 'show datapath bridge' and line.startswith('--- '):
                     continue    # skip the first table
 
                 if re.match("-+ +-", line):  # beginning of a content section
-                    in_cont = True
+                    self.in_cont = True
                     idx = []
                     for r in re.finditer('-+', line):
                         idx.append(r.span(0)[0])  # index of each separator string '----'
@@ -238,7 +306,7 @@ class AOSParser:
                     prev_line = line
 
             # EOF
-            if in_cmd:
+            if self.in_cmd:
                 self.end_of_cmd()
 
         except UnicodeDecodeError as e:
@@ -257,10 +325,8 @@ class AOSParser:
         :param cols: 取得したい列名
         :return: コマンド結果テーブル
         '''
-        if cmd not in self.tables:
+        if cmd not in self.tables or len(self.tables[cmd])==0:
             return None
-        if len(self.tables[cmd])==0:
-            return []
         if len(cols) != 0:
             return list(_get_cols_gen(self.tables[cmd][0], *cols))
         return self.tables[cmd][0]
@@ -270,80 +336,13 @@ class AOSParser:
         コマンドの結果テーブルを複数取得する
         :param cmd: コマンド
         :param cols: 取得したい列名
-        :return: コマンド結果テーブルのリスト
+        :return: コマンド結果テーブルのリスト (generatorのリスト)
         '''
         if cmd not in self.tables or len(self.tables[cmd])==0:
             return None
         if len(cols) != 0:
             return [_get_cols_gen(tbl, *cols) for tbl in self.tables[cmd]]
         return self.tables[cmd]
-
-    def cols2str(self, table, *col_names):
-        if len(col_names) == 0 or col_names[0] == '*':
-            return self.table2str(table)
-
-        max_col_widths = [0] * len(table[0])
-        for row in table:
-            max_col_widths = list(map(max, max_col_widths, map(len, row)))
-
-        idx = [table[0].index(col) for col in col_names]
-        fmt = ""
-        for i in idx[:-1]:
-            fmt += "{:" + str(max_col_widths[i]) + "}  "
-        fmt += "{}"
-
-        s = []
-        for row in table:
-            r2 = [row[i] for i in idx]
-            s.append(fmt.format(*r2))
-
-        return "\n".join(s) + "\n"
-
-    def write_table(self, table, fn):
-        if len(table) < 2:
-            log.info(f"No data written to {fn}.")
-            return True
-
-        with open(fn, mode="w") as f:
-            f.write(self.table2str(table))
-
-        log.info(f"{len(table)-1} records written to {fn}.")
-        return True
-
-    def write_table_csv(self, table_num, fn):
-        table = self.tables[table_num]
-        if len(table) < 2:
-            log.info(f"No data written to {fn}.")
-            return True
-
-        with open(fn, mode="w") as f:
-            f.write(self.table2csv(table_num))
-
-        log.info(f"{len(table)-1} records written to {fn}.")
-        return True
-
-    def table2str(self, table):
-        if len(table) < 2:
-            return ""
-
-        max_col_widths = [0] * len(table[0])
-        for row in table:
-            max_col_widths = list(map(max, max_col_widths, map(len, row)))
-
-        fmt = ""
-        for i in range(len(max_col_widths)-1):
-            fmt += "{:" + str(max_col_widths[i]) + "}  "
-        fmt += "{}"
-
-        s = [fmt.format(*row) for row in table]
-        return "\n".join(s) + "\n"
-
-    def table2csv(self, table):
-        if len(table) < 2:
-            return ""
-
-        s = [",".join(row) for row in table]
-        return "\n".join(s) + "\n"
 
 
 #
@@ -373,7 +372,7 @@ if __name__ == '__main__':
             if args.csv:
                 aos.write_csv(tbl, cmd + ".csv")
             else:
-                aos.write_table(tbl, cmd+".txt")
+                write_table(tbl, cmd+".txt")
 
     sys.exit(0)
 
