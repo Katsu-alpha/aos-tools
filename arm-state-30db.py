@@ -18,7 +18,7 @@ from collections import defaultdict
 # APpat = "^APG7"
 # APpat = "^APUMEDA"
 # APpat = "^APHIBFS"
-APpat = "^E013-A02[3456]"
+# APpat = "^E013-A02[3456]"
 
 SNR_THRESHOLD = 30
 
@@ -29,17 +29,6 @@ apn2model = {}
 apn2group = {}
 apgctr = defaultdict(lambda: 0)
 apgcov = defaultdict(lambda: 0)
-grp2flr = {'Pasaraya 2nd Floor': 2,
-           'Pasaraya 3rd Floor': 3,
-           'Pasaraya 4th Floor': 4,
-           'Pasaraya 5th Floor': 5,
-           'Pasaraya 6th Floor': 6,
-           'Pasaraya 7th Floor': 7,
-           'Go-Jek Lantai 4': 4,
-           'Go-Jek Lantai 5': 5,
-           'Go-Jek Lantai 6': 6,
-           'Go-Jek Lantai 7': 7,
-           }
 flrctr = defaultdict(lambda: 0)
 flrcov = defaultdict(lambda: 0)
 
@@ -49,19 +38,18 @@ def getfloor(apn, apg):
 
     # m = re.search(r'GTS(\d\d)', apg)
     # m = re.match(r'APUMEDA(\d\d)', apn)
-    m = re.match(r'E(\d\d\d)', apn)
+    # m = re.match(r'E(\d\d\d)', apn)
+    m = re.search(r'(\d+|[GM])[fF]', apn)
     if m:
         return m.group(1)
     else:
-        if len(apg) > 18:
-            apg = apg[:18]
-        return grp2flr[apg]
+        return "n/a"
 
 def parse_nbr_data(out, myapn, mych):
     global apn2model, apn2group
     global apgctr, apgcov
 
-    if 'APpat' in globals() and not re.search(APpat, myapn):
+    if not re.search(args.pattern, myapn):
         return
 
     cmd = out[0].strip()
@@ -72,7 +60,7 @@ def parse_nbr_data(out, myapn, mych):
         fl = getfloor(myapn, apg)
         apgctr[apg] += 1
         flrctr[fl] += 1
-        print(f"{myapn},{apg},{mych},0")
+        print(f'{myapn},{apg},{apn2model[myapn]},"{mych}",0')
         return
 
     tbl2 = []
@@ -82,14 +70,14 @@ def parse_nbr_data(out, myapn, mych):
             continue
 
         snr = int(r[2])
-        m = re.match(r'(\d+)[+-]?/([\d\.]+)', r[5])
+        m = re.match(r'(\d+)[+-E]?/([\d\.]+)', r[5])
         if not m:
-            m = re.match(r'(\d+)[+-]?/([\d\.]+)', r[4])
+            m = re.match(r'(\d+)[+-E]?/([\d\.]+)', r[4])
         if m:
             ch = m.group(1)
             pwr = m.group(2)
         else:
-            print("Can't parse Ch/EIRP.")
+            print(f"Can't parse Ch/EIRP: {fileinput.filelineno()}: {r[4]} {r[5]}")
             exit()
 
         if snr >= SNR_THRESHOLD:
@@ -109,7 +97,7 @@ def parse_nbr_data(out, myapn, mych):
     apgcov[apg] += len(tbl2)
     flrctr[fl] += 1
     flrcov[fl] += len(tbl2)
-    print(f"{myapn},{apg},{mych},{len(tbl2)}")
+    print(f'{myapn},{apg},{apn2model[myapn]},"{mych}",{len(tbl2)}')
 
 #
 #   main
@@ -120,6 +108,8 @@ if __name__ == '__main__':
         description="Parse show ap tech and display neighbor APs")
     parser.add_argument('infile', help="Input file(s)", type=str, nargs='+')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
+    parser.add_argument('--pattern', '-p', help='reged for AP name', type=str, default='.*')
+
     args = parser.parse_args()
 
     if args.debug:
@@ -149,29 +139,33 @@ if __name__ == '__main__':
         if l.startswith('show ap arm state'):
             break
 
-    print("AP Name,Group,Type,Channel,Co-ch AP")
-
+    print("AP Name,Group,Type,Channel,Coverage AP")
     out = []
-    cont = 0
+    cont = False
     for l in f:
-        if cont != 0 and l.startswith('Legend: '):
+        if cont and l.startswith('Legend: '):
             parse_nbr_data(out, apn, ch)
-            cont = 0
+            cont = False
             continue
-        elif cont != 0:
+        elif cont and l.startswith('AP:'):
+            parse_nbr_data(out, apn, ch)
+            cont = False
+            # fall through
+        elif cont:
             out.append(l)
             continue
 
-        # cont == 0
+        # cont == False
         if not l.startswith('AP:'): continue
 
         r = re.match(r'AP:([\w-]+) MAC:[:\w]+.* Channel:(\d+[SE+-]?)+', l)
         if r:
             apn = r.group(1)
             ch = r.group(2)
-            if int(re.sub(r'[SE+-]', '', ch)) < 36:
+            chi = int(re.sub(r'[SE+-]', '', ch))
+            if chi < 36 or chi & 3 != 0:
                 continue
-            cont = 1
+            cont = True
             out = ["show ap arm state\n"]
             continue
 
