@@ -12,15 +12,15 @@ from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
 from collections import defaultdict
 import matplotlib.pyplot as plt
 
-APpat = r'^(hvnap[0-9b]+|HVNAP[0-9b]+)'
-DrawGraph = False
+DrawGraph = True
 
 #
 #   get floor name
 #
 def floorname(apn):
     # m = re.search(r'Floor_(\d\d)', apn)
-    m = re.search(r'hvnap([0-9b]+)fap', apn, re.IGNORECASE)
+    # m = re.search(r'hvnap([0-9b]+)fap', apn, re.IGNORECASE)
+    m = re.search(r'(\d+|[GM])F', apn)
     if m:
         return m.group(1)
     else:
@@ -57,6 +57,7 @@ if __name__ == '__main__':
         description="Parse show ap association and display phy_cap breakdown")
     parser.add_argument('infile', help="Input file(s)", type=str, nargs='+')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
+    parser.add_argument('--pattern', '-p', help='reged for AP name', type=str, default='.*')
     args = parser.parse_args()
 
     if args.debug:
@@ -94,7 +95,7 @@ if __name__ == '__main__':
     flrctr = defaultdict(lambda: 0)
     for r in user_table[1:]:
         apn = r[7]
-        if 'APpat' in globals() and not re.search(APpat, apn):
+        if not re.search(args.pattern, apn):
             continue
 
         mac = r[1]
@@ -108,14 +109,22 @@ if __name__ == '__main__':
     #   create BSS -> channel map
     #
     bss2ch = {}
+    essapnset = defaultdict(lambda: set())
     for r in bss_table[1:]:
-        if r[6] in ('am', 'Spectrum'): continue
+        if r[6] in ('am', 'Spectrum'):
+            continue
+        apn = r[8]
+        if not re.search(args.pattern, apn):
+            continue
+
         bss = r[0]
+        ess = r[1]
         m = re.match(r'(\d+[SE+-]?)/', r[5])
         if not m:
             print(f"Invalid channel: {r}")
             sys.exit(-1)
         bss2ch[bss] = m.group(1)
+        essapnset[ess].add(apn)
 
     #
     #   phy_cap カウント
@@ -131,14 +140,16 @@ if __name__ == '__main__':
     essctr = defaultdict(lambda: 0)
     essctrphy = defaultdict(lambda: [0, 0])
     chctr = defaultdict(lambda: 0)
+    essvlan = defaultdict(lambda: set())
     for r in assoc_table[1:]:
-        if 'APpat' in globals() and not re.search(APpat, r[0]):
+        if not re.search(args.pattern, r[0]):
             continue
 
         numsta += 1
         bss = r[1]
         mac = r[2]
         essid = r[7]
+        vlan = r[8]
         phycap = r[15]
 
         is5G = True if "5GHz" in phycap else False
@@ -147,6 +158,7 @@ if __name__ == '__main__':
         ishe = True if "-HE-" in phycap else False
 
         essctr[essid] += 1
+        essvlan[essid].add(vlan)
 
         if is5G:
             num5G+=1
@@ -181,9 +193,9 @@ if __name__ == '__main__':
             print(f"{i}ss {os_numss[os][i]:>4}", end=", ")
         print()
 
-    print("\nClients per SSID")
-    for ess, n in essctr.items():
-        print(f"{ess:20}: {n} ({essctrphy[ess][0]}/{essctrphy[ess][1]})")
+    print("\nAPs/Clients per SSID (5G/2.4G)")
+    for ess in essapnset.keys():
+        print(f"{ess:20}: {len(essapnset[ess])} APs/{essctr[ess]} STAs ({essctrphy[ess][1]}/{essctrphy[ess][0]})")
 
     # print("\nTop 20 populated APs (based on L3 user table)")
     # for apn in sorted(apnctr.keys(), key=lambda x:apnctr[x], reverse=True)[:20]:
@@ -197,6 +209,11 @@ if __name__ == '__main__':
     for ch in sorted(chctr.keys()):
         print(f"{ch}: {chctr[ch]}  ", end="")
     print()
+
+    print("\nVLANs per ESSID")
+    for ess in sorted(essvlan.keys()):
+        vlans = sorted(essvlan[ess], key=lambda x: int(x))
+        print(f"{ess:20}: {', '.join(vlans)}")
 
     #
     #   draw pie chart
