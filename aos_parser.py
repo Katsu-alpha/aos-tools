@@ -248,6 +248,9 @@ class AOSParser:
                     elif line.startswith('end of '):
                         self.end_of_cmd()
                         continue
+                    elif line.startswith('Neighbor Summary:'):  # show ap arm neighbors on IAP
+                        self.end_of_cmd()
+                        continue
 
                     if line == '':          # end of a contents section
                         self.in_cont = False
