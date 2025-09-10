@@ -1,6 +1,6 @@
 #/usr/bin/python3 -u
 #
-#   ap2-monitor-intf.py
+#   ap-monitor-ssid.py
 #
 #   show ap monitor ap-list の結果をパースし、特定 SSID がどれぐらいの SNR で見えているかを表示
 #   AOS 8.10 対応版
