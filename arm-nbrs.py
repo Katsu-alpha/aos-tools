@@ -135,9 +135,10 @@ def parse_ap_mon(out, apn):
 
 def parse_arm_nbr(out, apn):
     global apn2ch, bss2apn, bssresolve
-    cmd = "show ap arm neighbors .*"
+    cmd = "show ap arm neighbors"
     aos = AOSParser("".join(out), [cmd])
     tbl = aos.get_table(cmd)
+    print(f"TBL: {tbl}")
     mych = apn2ch[apn]
     tbl2 = []
     bss_set = set()
@@ -230,7 +231,7 @@ if __name__ == '__main__':
     out = []
     cont = 0
     for l in f:
-        if cont != 0 and l.startswith('show '):
+        if cont != 0 and (l.startswith('show ') or l.startswith('Neighbor Summary')):
             if cont == 1:
                 #print(f"** found ap-list at LINE {fileinput.lineno()}")
                 print(f"\n\nFile: {fileinput.filename()}")
@@ -247,7 +248,7 @@ if __name__ == '__main__':
             continue
 
         # cont == 0
-        if not l.startswith('show '): continue
+        if not (l.startswith('show ') or l.startswith('COMMAND')): continue
 
         r = re.search(r'show ap monitor ap-list +ap-name "([\w-]+)"', l)
         if r:
@@ -268,6 +269,16 @@ if __name__ == '__main__':
             cont = 3
             out = [l]
             continue
+
+        # for IAP
+        r = re.search(r'show ap arm neighbors', l)
+        if r:
+            apn = "APGTS3424A"
+            apn2ch[apn] = '36+'
+            cont = 2
+            out = [l]
+            continue
+
 
         continue
 
