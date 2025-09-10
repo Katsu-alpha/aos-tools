@@ -1,8 +1,8 @@
 #/usr/bin/python3 -u
 #
-#   ap2-monitor-list-iap.py
+#   ap-monitor-list-iap.py
 #
-#   IAP の show ap monitor ap-list の結果をパースし、valid/interfering に分け、curr_snr でソートして出力
+#   IAP の show ap monitor ap-list の結果をパースし、valid/interfering に分け、curr_snr でソートして Excel に出力
 #
 
 import sys
@@ -101,7 +101,7 @@ if __name__ == '__main__':
     #
     #   output to file
     #
-    xlsfile = "ap-list.xlsx"
+    xlsfile = "ap-mon-list.xlsx"
     print(f"Writing to {xlsfile} ... ", end="")
     wb.save(xlsfile)
     print("done.")
