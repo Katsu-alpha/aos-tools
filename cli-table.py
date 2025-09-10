@@ -85,7 +85,7 @@ if __name__ == '__main__':
 
 
 
-    cmd = "show ap debug client-table .+"
+    cmd = "show ap debug client-table"
     cols = ["MAC", "ESSID", "BSSID", "Tx_Pkts", "Tx_Retries", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains"]
 
 
