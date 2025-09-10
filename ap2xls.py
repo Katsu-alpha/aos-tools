@@ -2,8 +2,9 @@
 #
 #   ap2xls.py
 #
-#   Join 'show ap database' and 'show ap active' tables and write the result to an MS Excel file
+#   Convert AP database table to MS Excel
 #
+#   2024/10/24 - AP-655 (tri-radio) 対応
 
 import sys
 import re
@@ -14,6 +15,22 @@ from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
+from collections import defaultdict
+
+def uniq(tbl):
+    ret = []
+    k = set()
+    for r in tbl:
+        if r[0] in k: continue
+        k.add(r[0])
+        ret.append(r)
+    return ret
+
+def toi(s):
+    try:
+        return int(s)
+    except ValueError:
+        return 0
 
 
 #
@@ -22,10 +39,11 @@ from openpyxl.styles import Font, PatternFill
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description="Join 'show ap database' and 'show ap active' tables and write the result to an MS Excel file")
-    parser.add_argument('infile', help="Input file containing 'show ap database long' and 'show ap active' output", type=str, nargs=1)
+        description="Convert AP database table to MS Excel")
+    parser.add_argument('infile', help="Input file(s) containing 'show ap database long' and 'show ap active' output", type=str, nargs='+')
     parser.add_argument('outfile', help='Output Excel file', type=str, nargs='?', default='')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
+    parser.add_argument('--pattern', '-p', help='regex for AP name', type=str, default='.*')
     args = parser.parse_args()
 
     if args.debug:
@@ -42,67 +60,54 @@ if __name__ == '__main__':
     #   parse AP tables
     #
     print("Parsing files ... ", end="")
-    aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE], merge=True)
+    try:
+        aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE], merge=True, encoding='utf-8')
+    except UnicodeDecodeError as e:
+        print(f'UTF-8 decode error. Trying Shift-JIS...')
+        aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE], merge=True, encoding='shift-jis')
+
     ap_database_tbl = aos.get_table(AP_DATABASE_LONG_TABLE)
-    ap_active_tbl   = aos.get_table(AP_ACTIVE_TABLE)
     if ap_database_tbl is None:
         print("show ap database long output not found.")
         sys.exit(-1)
-    if ap_active_tbl is None:
-        print("show ap active output not found.")
-        sys.exit(-1)
     print("done.")
 
+    ap_database_tbl = uniq(ap_database_tbl)
+    print(f"{len(ap_database_tbl)-1} unique APs found in ap database.")
+
     #
-    #   Process columns in active AP table
+    #   filter AP database table
     #
-    ap_act_tbl = []
-    ap_act_tbl.append(["Name", "5G PHY", "5G Ch", "5G EIRP", "2.4G PHY", "2.4G Ch", "2.4G EIRP"])
-    idx_r0 = ap_active_tbl[0].index("Radio 0 Band Ch/EIRP/MaxEIRP/Clients")
-    idx_r1 = ap_active_tbl[0].index("Radio 1 Band Ch/EIRP/MaxEIRP/Clients")
-    idx_name = ap_active_tbl[0].index("Name")
+    ap_db_tbl = [ap_database_tbl[0]]
+    for r in ap_database_tbl[1:]:
+        if not re.search(args.pattern, r[0]):
+            continue
+        ap_db_tbl.append(r)
 
-    for row in ap_active_tbl[1:]:
-        r0 = row[idx_r0]
-        r = re.match("(.+):([\dSE+\-]+)/([\d\.]+)/[\d\.]+/\d+$", r0)
-        if r:
-            r0_phy  = r.group(1)
-            r0_ch   = r.group(2)
-            r0_eirp = r.group(3)
-        else:
-            r0_phy = ""
-            r0_ch = ""
-            r0_eirp = ""
-
-        r1 = row[idx_r1]
-        r = re.match("(.+):([\dSE+\-]+)/([\d\.]+)/[\d\.]+/\d+$", r1)
-        if r:
-            r1_phy  = r.group(1)
-            r1_ch   = r.group(2)
-            r1_eirp = r.group(3)
-        else:
-            r1_phy = ""
-            r1_ch = ""
-            r1_eirp = ""
+    #
+    #   AP model tally
+    #
+    apmodelctr = defaultdict(lambda: 0)
+    for r in ap_db_tbl[1:]:
+        model = r[2]
+        apmodelctr[model] += 1
+    print("AP models")
+    for model in sorted(apmodelctr.keys()):
+        print(f"{model}: {apmodelctr[model]}")
+    print()
 
 
-        ap_act_tbl.append([row[idx_name], r0_phy, r0_ch, r0_eirp, r1_phy, r1_ch, r1_eirp])
 
     #
     #   table join & sort
     #
-    df_ap_database = pd.DataFrame(ap_database_tbl[1:], columns=ap_database_tbl[0])
-    df_ap_act      = pd.DataFrame(ap_act_tbl[1:], columns=ap_act_tbl[0])
-
-    df1 = df_ap_database.merge(df_ap_act, how="left", left_on="Name", right_on="Name")
-    df2 = df1[[
-        'Name', 'Group', 'AP Type', 'IP Address', 'Switch IP', 'Serial #',
-        '5G PHY', '5G Ch', '5G EIRP',
-        '2.4G PHY', '2.4G Ch', '2.4G EIRP',
-        'Wired MAC Address',
+    df_ap_database = pd.DataFrame(ap_db_tbl[1:], columns=ap_db_tbl[0])
+    df = df_ap_database[[
+        'Name', 'Group', 'AP Type', 'IP Address', 'Switch IP',
+        'Serial #', 'Wired MAC Address',
     ]]
-    #df = df2.sort_values(['Group', 'Name'])
-    df = df2.sort_values(['Name'])
+    #df = df.sort_values(['Group', 'Name'])
+    df = df.sort_values(['Name'])
 
     #
     #   Create Excel
@@ -117,17 +122,17 @@ if __name__ == '__main__':
         for cell in row:
             cell.font = f
 
-    widths = [25, 30, 10, 20, 20, 13, 15, 10, 10, 15, 10, 10, 25]
+    widths = [25, 30, 10, 20, 20, 13, 25]
     for i,w in enumerate(widths):
         ws.column_dimensions[chr(65+i)].width = w
 
     f = Font(name='Arial', bold=True, size=9)
     Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
-    for cell in ws['A1':'M1'][0]:
+    for cell in ws['A1':'G1'][0]:
         cell.fill = Ses
         cell.font = f
 
-    ws.auto_filter.ref = "A:M"
+    ws.auto_filter.ref = "A:G"
     ws.freeze_panes = "A2"
 
 
