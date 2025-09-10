@@ -7,7 +7,7 @@ import argparse
 import mylogger as log
 from aos_parser import AOSParser
 
-TX_PKTS_THRESHOLD = 10000      # Tx 10,000パケット未満の端末は除外
+TX_PKTS_THRESHOLD = 4000      # Tx 4,000パケット未満の端末は除外
 
 #   main
 #
@@ -24,8 +24,8 @@ if __name__ == '__main__':
     else:
         log.setloglevel(log.LOG_INFO)
 
-    cmd = "show ap debug client-table ap-name .*"
-    #cmd = "show ap debug client-table.*"
+    # cmd = "show ap debug client-table ap-name .*"
+    cmd = "show ap debug client-table.*"
     #
     #   parse AP tables
     #
