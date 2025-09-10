@@ -3,7 +3,7 @@
 #
 #   show radio-summary をパースし、5GHz radio を channel util 順にソートし、Excel に出力
 #   端末数の column は show ap active から取得
-#   Dual-5G 対応
+#   2025/1/14   tri-radio 対応
 #
 
 import sys
@@ -17,18 +17,6 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 import pandas as pd
 
-# APpat = r"^APKUDKS|^APSMFTM"
-# APpat = r"^APGTS"
-# APpat = r"^APG7"
-# APpat = r"^APUMEDA"
-# APpat = r"^APHIBFS"
-# APpat = r"^E013-A02[3456]"
-# APpat = r'SG-WA-F02|SG-WC-F02'
-# APpat = r'^idjktpsy'
-APpat = r'^(hvnap[0-9b]+|HVNAP[0-9b]+)'
-
-
-Band = "2.4"
 
 def atoi(s):
     m = re.match(r'(\d+)', s)
@@ -45,6 +33,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Parse show radio-summary and sort the 5GHz radios by channel utilization")
     parser.add_argument('infile', help="Input file(s)", type=str, nargs='+')
+    parser.add_argument('--pattern', '-p', help='regex for AP name', type=str, default='.*')
+    parser.add_argument('--band', '-b', help='Radio band', type=str, default='5')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
     args = parser.parse_args()
 
@@ -72,10 +62,11 @@ if __name__ == '__main__':
     print("done.")
 
     #
-    #   show ap active から Radio0, Radio1 の client 数取得
+    #   show ap active から Radio0, Radio1, Radio2 の client 数取得
     #
     idx_r0 = ap_active_tbl[0].index("Radio 0 Band Ch/EIRP/MaxEIRP/Clients")
     idx_r1 = ap_active_tbl[0].index("Radio 1 Band Ch/EIRP/MaxEIRP/Clients")
+    idx_r2 = ap_active_tbl[0].index("Radio 2 Band Ch/EIRP/MaxEIRP/Clients")
     apn_ch_sta = defaultdict(lambda: {})
 
     for row in ap_active_tbl[1:]:
@@ -95,6 +86,12 @@ if __name__ == '__main__':
             nsta = int(r.group(2))
             apn_ch_sta[apn][ch] = nsta
 
+        r2 = row[idx_r2]
+        r = re.search(r":(\d+[SE+\-]?)/[\d\.]+/[\d\.]+/(\d+)$", r2)
+        if r:
+            ch = r.group(1)
+            nsta = int(r.group(2))
+            apn_ch_sta[apn][ch] = nsta
 
     #
     #   radio-summary の必要な column のみ取り出す
@@ -104,13 +101,13 @@ if __name__ == '__main__':
     util_sum = defaultdict(lambda: 0)
     for r in radio_summary:
         apn = r[0]
-        if 'APpat' in globals() and not re.search(APpat, apn):
+        if not re.search(args.pattern, apn):
             continue
 
         apg = r[1]
         apt = r[2]
         band = r[4]
-        if not band.startswith(Band):
+        if not band.startswith(args.band):
             continue
         mode = r[5]     # AP:VHT:56
         if mode == 'AM': continue
