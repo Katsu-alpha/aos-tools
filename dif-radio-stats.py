@@ -1,5 +1,5 @@
 #
-#   show datapath message-queue counters をパースし、差分を表示
+#   show ap debug radio-stats/client-stats をパースし、差分を表示
 #
 
 import sys
@@ -30,7 +30,7 @@ else:
     RESET = ""
 
 
-re_prompt = r'[\)\]] \*?#'
+re_prompt = r'[\)\]] \*?#|Command: '
 
 # key: [command][parameter]
 ctr = defaultdict(lambda: defaultdict(lambda: 0))
@@ -65,7 +65,7 @@ if __name__ == '__main__':
             lines -= 1
             continue
 
-        r = re.search(re_prompt + r'(show .*)', l)
+        r = re.search(re_prompt + r'(show [^\t#]*)', l)
         if r:
             cmd = r.group(1)
             if "show clock" in cmd:
