@@ -17,16 +17,6 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from collections import defaultdict
 
-# APpat = "^APGTS"
-# APpat = "^APG7"
-# APpat = "^APUMEDA"
-# APpat = "^APHIBFS"
-# APpat = "^MICL5"
-# APpat = "^E013-A02[3456]"
-# APpat = r'SG-WA-F02|SG-WC-F02'
-# APpat = r'^wse'
-APpat = r'^(hvnap[0-9b]+|HVNAP[0-9b]+)'
-
 def uniq(tbl):
     ret = []
     k = set()
@@ -36,12 +26,19 @@ def uniq(tbl):
         ret.append(r)
     return ret
 
+
 def toi(s):
     try:
         return int(s)
     except ValueError:
         return 0
 
+
+def apn2floor(apn):
+    m = re.search(r'(\d+|[GM])F', apn)
+    if m:
+        return m.group(1)
+    return 'n/a'
 
 #
 #   main
@@ -53,6 +50,7 @@ if __name__ == '__main__':
     parser.add_argument('infile', help="Input file(s) containing 'show ap database long' and 'show ap active' output", type=str, nargs='+')
     parser.add_argument('outfile', help='Output Excel file', type=str, nargs='?', default='')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
+    parser.add_argument('--pattern', '-p', help='regex for AP name', type=str, default='.*')
     args = parser.parse_args()
 
     if args.debug:
@@ -69,7 +67,18 @@ if __name__ == '__main__':
     #   parse AP tables
     #
     print("Parsing files ... ", end="")
-    aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE], merge=True)
+
+    for enc in ('utf-8', 'shift-jis', 'mac-roman'):
+        try:
+            aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE], merge=True, encoding=enc)
+        except UnicodeDecodeError as e:
+            print(f'{enc} decode error.')
+            continue
+        break   # decode success
+    else:
+        print("unknown encoding, abort.")
+        sys.exit(-1)
+
     ap_database_tbl = aos.get_table(AP_DATABASE_LONG_TABLE)
     ap_active_tbl   = aos.get_table(AP_ACTIVE_TABLE)
     if ap_database_tbl is None:
@@ -90,9 +99,11 @@ if __name__ == '__main__':
     #
     ap_db_tbl = [ap_database_tbl[0]]
     for r in ap_database_tbl[1:]:
-        if 'APpat' in globals() and not re.search(APpat, r[0]):
+        if not re.search(args.pattern, r[0]):
             continue
         ap_db_tbl.append(r)
+    if args.pattern != '.*':
+        print(f"{len(ap_db_tbl)-1} APs matched pattern '{args.pattern}'.")
 
     #
     #   AP model tally
@@ -127,7 +138,7 @@ if __name__ == '__main__':
 
     for row in ap_active_tbl[1:]:
         apn = row[0]
-        if 'APpat' in globals() and not re.search(APpat, apn):
+        if not re.search(args.pattern, apn):
             continue
 
         r0 = row[idx_r0]
@@ -174,14 +185,7 @@ if __name__ == '__main__':
         #
         #  フロア毎のユーザ数集計
         #
-        # m = re.match(r'(\w+\d\d)', row[1])
-        m = re.search(r'hvnap([0-9b]+)fap', apn, re.IGNORECASE)
-        if m:
-            fl = m.group(1)
-        else:
-            fl = 'n/a'
-            #print(f"Uknown floor: AP {row[0]} Group {row[1]}")
-
+        fl = apn2floor(apn)
         apsperfloor[fl] += 1
         usersperfloor[fl] += toi(r0_sta) + toi(r1_sta) + toi(r2_sta)
 
