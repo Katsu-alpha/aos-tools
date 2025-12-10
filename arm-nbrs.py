@@ -46,6 +46,7 @@ else:
     YELLOW = ""
     RESET = ""
 
+APName = "n/a"
 apn2ch = {}
 #exclude_ssids = ['ELITE-Corp', 'KLSPOT', 'Visitor-Guest']
 exclude_ssids = []
@@ -53,7 +54,7 @@ bss2apn = defaultdict(lambda: "")
 bssresolve = False
 
 def parse_bss_tbl(out):
-    global bss2apn, bssresolve
+    global bss2apn, bssresolve, APName
     cmd = "show ap bss-table"
     aos = AOSParser("".join(out), [cmd])
     tbl = aos.get_table(cmd)
@@ -61,32 +62,31 @@ def parse_bss_tbl(out):
         print(f"No bss-table found.")
         return
     for r in tbl[1:]:
-        bss2apn[r[0]] = r[8]
+        APName = r[8]
+        bss2apn[r[0]] = APName
 
     bssresolve = True
 
 def parse_ap_mon(out, apn):
-    global apn2ch, bss2apn, bssresolve
-    cmd = "show ap monitor ap-list .*"
+    global apn2ch, bss2apn, bssresolve, APName
+    if apn == 'IAP':
+        apn = APName
+    cmd = "show ap monitor ap-list"
     aos = AOSParser("".join(out), [cmd])
-    tbl = aos.get_table(cmd)
+    tbl = aos.get_table(cmd, 'bssid', 'essid', 'band/chan/ch-width/ht-type', 'ap-type', 'curr-snr')
     if tbl == None:
         print(f"No ap-list found for {apn}")
         return
+
     mych = ""
     tbl2 = []
     bss_set = set()
-    for r in tbl[1:]:
-        # print(r)
-        bss = r[0]
-        type = r[3]
+    for r in tbl:
+        bss, ess, radio, type, snr = r
         if Suppress_VAPs and type == 'valid' and bss[:16] in bss_set:
             continue
         bss_set.add(bss[:16])
-        ess = r[1]
-        radio = r[2]
-        snr = int(r[10])
-
+        snr = int(snr)
         if Only5G:
             m = re.match(r'5GHz/(\d+)', radio)
         else:
@@ -103,8 +103,7 @@ def parse_ap_mon(out, apn):
     if not Print_APList:
         return
 
-    # print(f'Found Monitor AP List for AP "{apn}" Ch={mych}')
-    print(out[0])
+    print(f"AP: {apn} ({mych}ch)\n")
     print("BSSID                 ESSID                         Radio                  Type                SNR")
     print("-----                 -----                         -----                  ----                ---")
     apnres = ""
@@ -135,10 +134,10 @@ def parse_ap_mon(out, apn):
 
 def parse_arm_nbr(out, apn):
     global apn2ch, bss2apn, bssresolve
-    cmd = "show ap arm neighbors"
+    cmd = "show ap arm neighbors.*"
     aos = AOSParser("".join(out), [cmd])
     tbl = aos.get_table(cmd)
-    print(f"TBL: {tbl}")
+
     mych = apn2ch[apn]
     tbl2 = []
     bss_set = set()
@@ -166,7 +165,7 @@ def parse_arm_nbr(out, apn):
         tbl2.append([bss, ess, ch, snr, eirp, pl, flg, pch])
 
     if Print_ARMNbr:
-        print(f'\nFound ARM Neighbor for AP "{apn}" Ch={mych}')
+        print(f"AP: {apn} ({mych}ch)\n")
         print("BSSID               ESSID                         Ch   SNR  EIRP  PL (dB)  AP Flags")
         print("-----               -----                         --   ---  ----  -------  --------")
     if Sort:
@@ -231,16 +230,20 @@ if __name__ == '__main__':
     out = []
     cont = 0
     for l in f:
-        if cont != 0 and (l.startswith('show ') or l.startswith('Neighbor Summary')):
+        if cont != 0 and ('show ' in l or l.startswith('Neighbor Summary')):
             if cont == 1:
-                #print(f"** found ap-list at LINE {fileinput.lineno()}")
-                print(f"\n\nFile: {fileinput.filename()}")
+                print(f"\n\nFile: {fileinput.filename()}:{lno}")
+                print(f"Command: {out[0].strip()}")
                 parse_ap_mon(out, apn)
                 cont = 0
             elif cont == 2:
+                print(f"\n\nFile: {fileinput.filename()}:{lno}")
+                print(f"Command: {out[0].strip()}")
                 parse_arm_nbr(out, apn)
                 cont = 0
             elif cont == 3:
+                print(f"\n\nFile: {fileinput.filename()}:{lno}")
+                print(f"Command: {out[0].strip()}")
                 parse_bss_tbl(out)
                 cont = 0
         elif cont != 0:
@@ -248,34 +251,46 @@ if __name__ == '__main__':
             continue
 
         # cont == 0
-        if not (l.startswith('show ') or l.startswith('COMMAND')): continue
+        if not ('show ' in l or l.startswith('COMMAND')): continue
 
-        r = re.search(r'show ap monitor ap-list +ap-name "([\w-]+)"', l)
+        r = re.search(r'show ap monitor ap-list +ap-name "?([\w-]+)"?', l)
         if r:
             apn = r.group(1)
             cont = 1
+            lno = fileinput.filelineno()
             out = [l]
             continue
 
-        r = re.search(r'show ap arm neighbors +ap-name "([\w-]+)"', l)
+        r = re.search(r'show ap arm neighbors +ap-name "?([\w-]+)"?', l)
         if r:
             apn = r.group(1)
             cont = 2
+            lno = fileinput.filelineno()
             out = [l]
             continue
 
         r = re.search(r'show ap bss-table[\r\n ]*$', l)
         if r:
             cont = 3
+            lno = fileinput.filelineno()
             out = [l]
             continue
 
         # for IAP
+        r = re.search(r'show ap monitor ap-list$', l)
+        if r:
+            apn = "IAP"
+            cont = 1
+            lno = fileinput.filelineno()
+            out = [l]
+            continue
+
         r = re.search(r'show ap arm neighbors', l)
         if r:
-            apn = "APGTS3424A"
-            apn2ch[apn] = '36+'
+            apn = "IAP"
+            apn2ch[apn] = 'n/a'
             cont = 2
+            lno = fileinput.filelineno()
             out = [l]
             continue
 
