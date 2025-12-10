@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 Color = True
-
+MIN_TXPKTS = 1000       # minimum txpkts to calculate retry rate
 
 if Color:
    GREEN = Fore.GREEN
@@ -35,7 +35,16 @@ else:
 
 # rate_buckets = [0, 30, 60, 100, 150, 220, 300]
 # rate_buckets = [i*20 for i in range(16)]
-rate_buckets = [0, 20, 40, 70, 100, 140, 180, 230, 300]
+# for 20MHz channel
+rate_buckets300 = [0, 20, 40, 70, 100, 140, 180, 230, 300]
+
+# for 40MHz channel
+rate_buckets600 = [0, 40, 80, 150, 200, 300, 360, 450, 600]
+
+# for 80MHz channel
+rate_buckets1200 = [0, 80, 160, 300, 400, 500, 700, 1000, 1500]
+
+
 snr_buckets = [0, 10, 20, 30, 40, 50, 100]
 
 def col_red(s, thresh, col=5):
@@ -85,7 +94,7 @@ if __name__ == '__main__':
 
 
 
-    cmd = "show ap debug client-table"
+    cmd = "show ap debug client-table.*"
     cols = ["MAC", "ESSID", "BSSID", "Tx_Pkts", "Tx_Retries", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains"]
 
 
@@ -107,6 +116,21 @@ if __name__ == '__main__':
 
         tbl.extend(cli_tbl)
 
+    if len(tbl) == 0:
+        sys.exit(0)
+
+    #   select rate buckets based on max rate
+    max_rate = 0
+    for row in tbl:
+        max_rate = max(max_rate, int(row[5]), int(row[6]))
+
+    if max_rate <= 300:
+        rate_buckets = rate_buckets300
+    elif max_rate <= 600:
+        rate_buckets = rate_buckets600
+    else:
+        rate_buckets = rate_buckets1200
+
 
     #
     #   print results
@@ -121,16 +145,18 @@ if __name__ == '__main__':
         mac,essid,bssid,tx_pkts,tx_retr,tx_rate,rx_rate,rx_snr,tx_chains = row
 
         # rate histogram (count only 2SS clients)
-        if tx_chains.startswith('2'):
-            tx_hist[rate_idx(int(tx_rate))+1] += 1
-            rx_hist[rate_idx(int(rx_rate))+1] += 1
+        # if tx_chains.startswith('2'):
+        #     tx_hist[rate_idx(int(tx_rate))+1] += 1
+        #     rx_hist[rate_idx(int(rx_rate))+1] += 1
+        tx_hist[rate_idx(int(tx_rate))+1] += 1
+        rx_hist[rate_idx(int(rx_rate))+1] += 1
 
         snr_hist[snr_idx(int(rx_snr))+1] += 1
 
         # calculate retry rate
         tx_pkts = int(tx_pkts)
         tx_retr = int(tx_retr)
-        if tx_pkts > 300:
+        if tx_pkts >= MIN_TXPKTS:
             retr_rate = f"{tx_retr / tx_pkts * 100:.1f}%"
         else:
             retr_rate = 'n/a'
