@@ -1,6 +1,6 @@
 #/usr/bin/python3 -u
 #
-#   ap2-monitor-list.py
+#   ap-monitor-list.py
 #
 #   show ap monitor ap-list の結果をパースし、valid/interfering に分け、curr_snr でソートして出力
 #   show ap bss-table を含むファイルを追加で指定すると、AP名を解決して表示
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     # BSSID -> AP Name の辞書を作成
     bss2apn = defaultdict(lambda: "")
     if ap_bss_tbl is not None:
-        for r in ap_bss_tbl:
+        for r in ap_bss_tbl[1:]:
             bss2apn[r[0]] = r[8]
 
     # print("done.")
