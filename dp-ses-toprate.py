@@ -12,6 +12,7 @@ import mylogger as log
 from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
 from collections import defaultdict
 
+
 #
 #   重複するキーを削除
 #
@@ -35,6 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('infile', help="Input file(s)", type=str, nargs='+')
     parser.add_argument('--pattern', '-p', help='regex for AP name', type=str, default='.*')
     parser.add_argument('--top', '-t', help='Top N sessions', type=int, default=100)
+    parser.add_argument('--p2p', help='Display P2P sessions', action='store_true')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
     args = parser.parse_args()
 
@@ -66,13 +68,11 @@ if __name__ == '__main__':
     #
     user_ip = set()
     ip2apn = {}
-    maxlen = 0
     for r in user_tbl[1:]:
-        ip = r[0]
         apn = r[7]
+        ip = r[0]
         user_ip.add(ip)
         ip2apn[ip] = apn
-        maxlen = max(maxlen, len(apn))
 
     #
     #   get top 100 high-bandwidth session
@@ -82,30 +82,41 @@ if __name__ == '__main__':
     num_v = num_i = num_q = num_u = tot_br = 0
     idx_tos   = dp_ses[0].index('ToS')
     idx_tage  = dp_ses[0].index('TAge')
+    idx_pkts  = dp_ses[0].index('Packets')
     idx_bytes = dp_ses[0].index('Bytes')
     idx_flags = dp_ses[0].index('Flags')
     idx_appid = dp_ses[0].index('AppID')
     rate_ap = defaultdict(lambda: 0)
     rate_ip = defaultdict(lambda: 0)
     num_ses = defaultdict(lambda: 0)
+    maxlen = 6
 
     for r in dp_ses[1:]:
         tage = int(r[idx_tage], 16)
         if tage <= 5: continue          # ignore short-lived session
         if r[2] == '47': continue       # ignore GRE tunnel
+        if r[idx_bytes] == '0' or r[idx_pkts] == '0':
+            continue        # ignore session with no traffic
         sip = r[0]
         dip = r[1]
         sap = ip2apn.get(sip, '')
         dap = ip2apn.get(dip, '')
         if (not re.search(args.pattern, sap)) and (not re.search(args.pattern, dap)):
             continue        # AP name does not match
+        if args.p2p:
+            if sap == '' or dap == '':
+                continue    # not P2P session
 
-        bytes = int(r[idx_bytes])
+        maxlen = max(maxlen, len(sap), len(dap))
+
+
         flags = r[idx_flags]
+        bytes = int(r[idx_bytes])
         bitrate = bytes*8/tage
         tot_br += bitrate
-        # SIP, SAP, DIP, DAP, Proto, SPort, DPort, ToS, TAge, Bytes, Bitrate, Flags, AppID
-        tbl.append([sip, sap, dip, dap, r[2], r[3], r[4], r[idx_tos], tage, bytes, bitrate, flags, r[idx_appid][:16].rstrip()])
+        avg_pkt_size = bytes / int(r[idx_pkts])
+        # SIP, SAP, DIP, DAP, Proto, SPort, DPort, ToS, TAge, Bytes, AvgPKtSize, Bitrate, Flags, AppID
+        tbl.append([sip, sap, dip, dap, r[2], r[3], r[4], r[idx_tos], tage, bytes, avg_pkt_size, bitrate, flags, r[idx_appid][:16].rstrip()])
 
         m = re.match(r'(\d+)\.', dip)
         if m:
@@ -135,14 +146,15 @@ if __name__ == '__main__':
     #   show results
     #
 
-    print(f'Listing top {args.top} sessions:')
+    print(f'Matched {len(tbl)} sessions:')
+    print(f'Listing top {args.top} sessions:\n')
     spc = " " * (maxlen-4)
-    print(f"Src IP              Src AP{spc}Dst IP              Dst AP{spc}Proto  SPort  DPort  ToS  Bytes        Dur   BW(Kbps)  Flags  AppID")
-    print(f"------              ------{spc}------              ------{spc}-----  -----  -----  ---  -----        ---   --------  -----  -----")
+    print(f"Src IP           Src AP{spc}Dst IP           Dst AP{spc}Proto  SPort  DPort  ToS       Bytes   Dur  Avg.Size  BW(Kbps)  Flags  AppID")
+    print(f"------           ------{spc}------           ------{spc}-----  -----  -----  ---       -----   ---  --------  --------  -----  -----")
 
     # Sorty by BW
-    for r in sorted(tbl, key=lambda x:x[10], reverse=True)[:args.top]:
-        print(f'{r[0]:20}{r[1]:{maxlen+2}}{r[2]:20}{r[3]:{maxlen+2}}{r[4]:7}{r[5]:7}{r[6]:7}{r[7]:3}  {r[9]:>10}{r[8]:>6} {r[10]/1000:>10.2f}  {r[11]:5}  {r[12]}')
+    for r in sorted(tbl, key=lambda x:x[11], reverse=True)[:args.top]:
+        print(f'{r[0]:17}{r[1]:{maxlen+2}}{r[2]:17}{r[3]:{maxlen+2}}{r[4]:7}{r[5]:7}{r[6]:7}{r[7]:3}  {r[9]:>10}{r[8]:>6}  {int(r[10]):>8} {r[11]/1000:>9.2f}  {r[12]:5}  {r[13]}')
 
     print(f"Total bitrate: {tot_br/1000/1000:.2f} Mbps")
     #sys.exit(0)
