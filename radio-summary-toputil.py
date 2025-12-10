@@ -48,13 +48,22 @@ if __name__ == '__main__':
     #   parse AP tables
     #
     print("Parsing files ... ", end="")
-    aos = AOSParser(args.infile, ["show ap radio-summary"], merge=False)
+    for enc in ('utf-8', 'shift-jis', 'mac-roman'):
+        try:
+            aos = AOSParser(args.infile, ["show ap radio-summary"], merge=False, encoding=enc)
+        except UnicodeDecodeError as e:
+            continue
+        break   # encode success
+    else:
+        print("unknown encoding, abort.")
+        sys.exit(-1)
+
     radio_summary = aos.get_table("show ap radio-summary")
     if radio_summary is None:
         print("show ap radio-summary output not found.")
         sys.exit(-1)
 
-    aos = AOSParser(args.infile, ["show ap active"], merge=True)
+    aos = AOSParser(args.infile, ["show ap active"], merge=True, encoding=enc)
     ap_active_tbl = aos.get_table("show ap active")
     if ap_active_tbl is None:
         print("show ap active output not found.")
