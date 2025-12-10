@@ -94,6 +94,10 @@ def parse_nbr_data(out, myapn, mych):
     if not re.search(args.pattern, myapn):
         return
 
+    if myapn not in apn2group:
+        log.warn(f"AP {myapn} not found in AP database")
+        return
+
     cmd = out[0].strip()
     aos = AOSParser("".join(out), [cmd])
     tbl = aos.get_table(cmd)
