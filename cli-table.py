@@ -35,6 +35,9 @@ else:
 
 # rate_buckets = [0, 30, 60, 100, 150, 220, 300]
 # rate_buckets = [i*20 for i in range(16)]
+# for 20MHz channel (11ac)
+rate_buckets180 = [0, 10, 25, 40, 60, 80, 100, 140, 180]
+
 # for 20MHz channel
 rate_buckets300 = [0, 20, 40, 70, 100, 140, 180, 230, 300]
 
@@ -124,7 +127,9 @@ if __name__ == '__main__':
     for row in tbl:
         max_rate = max(max_rate, int(row[5]), int(row[6]))
 
-    if max_rate <= 300:
+    if max_rate <= 180:
+        rate_buckets = rate_buckets180
+    elif max_rate <= 300:
         rate_buckets = rate_buckets300
     elif max_rate <= 600:
         rate_buckets = rate_buckets600
