@@ -90,6 +90,7 @@ def parse_nbr_data(out, myapn, mych):
     global apn2model, apn2group
     global allctr, allitf
     global COV_SNR
+    global enc
 
     if not re.search(args.pattern, myapn):
         return
@@ -99,7 +100,7 @@ def parse_nbr_data(out, myapn, mych):
         return
 
     cmd = out[0].strip()
-    aos = AOSParser("".join(out), [cmd])
+    aos = AOSParser("".join(out), [cmd], encoding=enc)
     tbl = aos.get_table(cmd)
     if tbl is None or len(tbl) == 0:
         log.warn(fln() + f": No Neighbor Data found for AP {myapn}")
@@ -171,7 +172,17 @@ if __name__ == '__main__':
     #
     #   parse ap database and get apname -> ap model mapping
     #
-    aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE], merge=True)
+    enc = ""
+    for enc in ('utf-8', 'shift-jis', 'mac-roman'):
+        try:
+            aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE], merge=True, encoding=enc)
+        except UnicodeDecodeError as e:
+            continue
+        break   # encode success
+    else:
+        print("unknown encoding, abort.")
+        sys.exit(-1)
+
     ap_database_tbl = aos.get_table(AP_DATABASE_LONG_TABLE)
     if ap_database_tbl is None:
         print("show ap database long output not found.")
@@ -185,7 +196,7 @@ if __name__ == '__main__':
     #   parse show ap arm state
     #
 
-    f = fileinput.input(args.infile, encoding='utf-8')
+    f = fileinput.input(args.infile, encoding=enc)
     for l in f:
         if l.startswith('show ap arm state'):
             break
