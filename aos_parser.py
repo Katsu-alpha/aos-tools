@@ -138,7 +138,7 @@ class AOSParser:
         self.in_cmd = False
         self.in_cont = False
         if len(self.cur_table) <= 1:
-            log.info(f"No entries found for '{self.cur_cmd}'.")
+            #log.info(f"No entries found for '{self.cur_cmd}'.")
             return
         log.debug(f"{len(self.cur_table)-1} entries found in '{self.cur_cmd}'.")
 
@@ -189,6 +189,10 @@ class AOSParser:
                 self.fromfile = False
             elif '*' in files:
                 files = glob.glob(files)
+        else:   # files is a list
+            if '\n' in files[0]:
+                data = files
+                self.fromfile = False
 
         if self.fromfile:
             data = fileinput.input(files, encoding=encoding)
