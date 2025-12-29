@@ -176,8 +176,10 @@ class AOSParser:
         self.tables = {}        # 各コマンドのパース結果を格納するdict. キー=コマンド名, val=パース結果の配列
         if type(cmds) == str:
             cmds = [cmds]
+        pat = {}
         for cmd in cmds:
             self.tables[cmd] = []
+            pat[cmd] = re.compile(cmd + r"$")
 
         self.in_cmd  = False
         self.in_cont = False
@@ -212,9 +214,8 @@ class AOSParser:
 
                 # found matching show command
                 if not self.in_cmd:
-                    for cmd in cmds:
-                        pat = cmd + "$"
-                        if re.search(pat, line):
+                    for cmd, p in pat.items():
+                        if p.search(line):
                             log.debug(self.file_line() + "Parsing " + cmd)
                             self.in_cmd = True
                             self.cur_cmd = cmd
@@ -351,6 +352,56 @@ class AOSParser:
             return [_get_cols_gen(tbl, *cols) for tbl in self.tables[cmd]]
         return self.tables[cmd]
 
+    def dedup(self, cmd, keycol):
+        '''
+        指定したコマンドのテーブルを keycol 列で重複排除する
+        :param cmd: コマンド
+        :param keycol: 重複排除に使用する列名
+        :return: 重複排除後のレコード数
+        '''
+        if cmd not in self.tables or len(self.tables[cmd])==0:
+            return 0
+
+        tbl = self.tables[cmd][0]
+        idx = tbl[0].index(keycol)
+        seen = set()
+        new_tbl = [tbl[0]]   # ヘッダ行
+
+        for row in tbl[1:]:
+            key = row[idx]
+            if key in seen:
+                continue
+            seen.add(key)
+            new_tbl.append(row)
+
+        self.tables[cmd][0] = new_tbl
+        return len(new_tbl)-1
+
+
+    def dedup2(self, cmd, *keycol):
+        '''
+        指定したコマンドのテーブルを keycol 列で重複排除する
+        :param cmd: コマンド
+        :param keycol: 重複排除に使用する列名のリスト
+        :return: 重複排除後のレコード数
+        '''
+        if cmd not in self.tables or len(self.tables[cmd])==0:
+            return 0
+
+        tbl = self.tables[cmd][0]
+        idx = [tbl[0].index(col) for col in keycol]
+        seen = set()
+        new_tbl = [tbl[0]]   # ヘッダ行
+
+        for row in tbl[1:]:
+            key = tuple([row[i] for i in idx])
+            if key in seen:
+                continue
+            seen.add(key)
+            new_tbl.append(row)
+
+        self.tables[cmd][0] = new_tbl
+        return len(new_tbl)-1
 
 #
 #   main
