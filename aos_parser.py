@@ -424,6 +424,14 @@ class AOSParser:
         self.tables[cmd][0] = new_tbl
         return len(new_tbl)-1
 
+    def change_colname(self, cmd, col_nam):
+        if cmd not in self.tables or len(self.tables[cmd])==0:
+            return
+        cols = self.tables[cmd][0][0]
+        for i, col in enumerate(cols):
+            if col in col_nam:
+                cols[i] = col_nam[col]
+
 #
 #   main
 #
