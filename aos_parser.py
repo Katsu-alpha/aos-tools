@@ -339,6 +339,27 @@ class AOSParser:
             return list(_get_cols_gen(self.tables[cmd][0], *cols))
         return self.tables[cmd][0]
 
+
+    def get_table_key(self, cmd, key, val, *cols):
+        '''
+        コマンドの結果テーブルから key==val の列をすべて取得する
+        :param cmd: コマンド
+        :param cols: 取得したい列名
+        :return: コマンド結果テーブル
+        '''
+        if len(cols)==0 or cmd not in self.tables or len(self.tables[cmd])==0:
+            return None
+        tbl = self.tables[cmd][0]
+        r = []
+        idx = [tbl[0].index(col) for col in cols]
+        kidx = tbl[0].index(key)
+        for row in tbl[1:]:
+            if row[kidx] == val:
+                r.append([row[i] for i in idx])
+
+        return r
+
+
     def get_tables(self, cmd, *cols):
         '''
         コマンドの結果テーブルを複数取得する
