@@ -28,7 +28,7 @@ DATAPATH_SESSION_DPI = "show datapath session dpi"
 DATAPATH_SESSION_INT = "show datapath session internal"
 DATAPATH_USER = "show datapath user table"
 DATAPATH_BRIDGE = "show datapath bridge table"
-
+DATAPATH_TUNNEL = "show datapath tunnel verbose"
 
 #
 #   helper functions
@@ -228,7 +228,7 @@ class AOSParser:
                     #
                     #   end of table check
                     #
-                    if self.cur_cmd in (DATAPATH_SESSION_TABLE, DATAPATH_SESSION_DPI, DATAPATH_SESSION_INT, DATAPATH_USER):
+                    if self.cur_cmd in (DATAPATH_SESSION_TABLE, DATAPATH_SESSION_DPI, DATAPATH_SESSION_INT, DATAPATH_USER, DATAPATH_TUNNEL):
                         if line == '':
                             continue        # skip blank line in datapath session table
                         if re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
