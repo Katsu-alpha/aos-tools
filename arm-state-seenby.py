@@ -17,24 +17,39 @@ from openpyxl.styles import Font, PatternFill, Alignment
 import pandas as pd
 
 
+
+# Print iterations progress
+def printProgressBar (iteration, total, prefix = 'Progress:', suffix = 'Complete', decimals = 0, length = 50, fill = '█', printEnd = "\r"):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        length      - Optional  : character length of bar (Int)
+        fill        - Optional  : bar fill character (Str)
+        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
+    """
+    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
+    filledLength = int(length * iteration // total)
+    bar = fill * filledLength + '-' * (length - filledLength)
+    print(f'\r{prefix} |{bar}| {percent}% {suffix}', end=printEnd)
+    # Print New Line on Complete
+    if iteration == total:
+        print()
+
+
 #
 #   parse neighbor data and find if target AP is seen by this AP
 #
 def parse_nbr_data(out, myapn, mych):
-    global apn2model, apn2group
-    global allctr, allitf
-    global COV_SNR
-    global enc
-
     if not re.search(args.pattern, myapn):
         return
 
-    if myapn not in apn2group:
-        log.warn(f"AP {myapn} not found in AP database")
-        return
-
     cmd = out[0].strip()
-    aos = AOSParser("".join(out), [cmd], encoding=enc)
+    aos = AOSParser("".join(out), [cmd])
     tbl = aos.get_table(cmd)
     if tbl is None or len(tbl) == 0:
         return
@@ -73,7 +88,6 @@ if __name__ == '__main__':
     #   parse ap database and get apname -> ap model mapping
     #   identiry the encoding - utf-8, shift-jis, mac-roman
     #
-    enc = ""
     for enc in ('utf-8', 'shift-jis', 'mac-roman'):
         try:
             aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE], merge=True, encoding=enc)
@@ -84,37 +98,36 @@ if __name__ == '__main__':
         print("unknown encoding, abort.")
         sys.exit(-1)
 
-    ap_database_tbl = aos.get_table(AP_DATABASE_LONG_TABLE)
-    if ap_database_tbl is None:
-        print("show ap database long output not found.")
-        sys.exit(-1)
-
-    for r in ap_database_tbl[1:]:
-        apn2model[r[0]] = r[2]
-        apn2group[r[0]] = r[1]
 
     #
     #   parse show ap arm state
     #
-
     f = fileinput.input(args.infile, encoding=enc)
     for l in f:
         if l.startswith('show ap arm state'):
             break
+    arm_state = []
+    for l in f:
+        if l.startswith('show '):
+            break
+        arm_state.append(l)
 
+    total = len(arm_state)
     out = []
     seenby = []
     apn = ch = ""
     cont = False
-    for l in f:
+    for i, l in enumerate(arm_state, 1):
         if cont and l.startswith('Legend: '):
             r = parse_nbr_data(out, apn, ch)
+            printProgressBar(i, total)
             if r:
                 seenby.append(r)
             cont = False
             continue
         elif cont and l.startswith('AP:'):
             r = parse_nbr_data(out, apn, ch)
+            printProgressBar(i, total)
             if r:
                 seenby.append(r)
             cont = False
@@ -138,6 +151,8 @@ if __name__ == '__main__':
             continue
 
         continue
+
+    printProgressBar(i, total)  # 100% Complete
 
     seenby.sort(key=lambda x: x[2])   # sort by PathLoss
 
