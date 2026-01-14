@@ -39,10 +39,10 @@ else:
 rate_buckets180 = [0, 10, 25, 40, 60, 80, 100, 140, 180]
 
 # for 20MHz channel
-rate_buckets300 = [0, 20, 40, 70, 100, 140, 180, 230, 300]
+rate_buckets300 = [0, 20, 40, 60, 90, 120, 170, 230, 300]
 
 # for 40MHz channel
-rate_buckets600 = [0, 40, 80, 150, 200, 300, 360, 450, 600]
+rate_buckets600 = [0, 40, 80, 120, 180, 240, 330, 450, 600]
 
 # for 80MHz channel
 rate_buckets1200 = [0, 80, 160, 300, 400, 500, 700, 1000, 1500]
@@ -85,9 +85,10 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
         description=f"Parse 'show ap debug client-table'")
-    parser.add_argument('infile', help="Input files(s) containing 'show ap monitor ap-list' output", type=str, nargs='+')
+    parser.add_argument('infile', help="Input files(s) containing 'show ap debug client-table' output", type=str, nargs='+')
     #parser.add_argument('outfile', help='Output Excel file', type=str, nargs='?', default='')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
+    parser.add_argument('--band', '-b', help='Radio band (2/5:default/6)', type=str, default='all')
     args = parser.parse_args()
 
     if args.debug:
@@ -97,30 +98,51 @@ if __name__ == '__main__':
 
 
 
-    cmd = "show ap debug client-table.*"
+    cmds = ["show ap debug client-table.*", "show ap association.*"]
     cols = ["MAC", "ESSID", "BSSID", "Tx_Pkts", "Tx_Retries", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains"]
-
+    cols_assoc = ["bssid", "phy"]
 
     #
-    #   parse Client Table
+    #   Parse Client Table per file
+    #   Merge all tables in a file
     #
     tbl = []
+    tbl_assoc = []
     for fn in args.infile:
-        #print(f"Parsing file {fn} ... ", end="")
-        try:
-            aos = AOSParser(fn, cmd)
-        except UnicodeDecodeError as e:
-            aos = AOSParser(fn, cmd, encoding='shift-jis')
+        for enc in ('utf-8', 'shift-jis', 'mac-roman'):
+            try:
+                aos = AOSParser(fn, cmds, encoding=enc, merge=True)
+            except UnicodeDecodeError as e:
+                continue
+            break   # encode success
+        else:
+            print(f"unknown encoding for {fn}, skip.")
+            continue
 
-        cli_tbl = aos.get_table(cmd, *cols)
+        cli_tbl = aos.get_table(cmds[0], *cols)
         if cli_tbl is None:
             print(f"Client Table not found in {fn}.")
             continue
-
         tbl.extend(cli_tbl)
 
+        assoc_tbl = aos.get_table(cmds[1], *cols_assoc)
+        if assoc_tbl is not None:
+            tbl_assoc.extend(assoc_tbl)
+
     if len(tbl) == 0:
+        print("No Client Table found.")
         sys.exit(0)
+
+    #   create BSS -> phy mapping from association table
+    bss2phy = defaultdict(str)
+    for row in tbl_assoc:
+        bss = row[0]
+        phy = row[1]
+        bss2phy[bss] = phy
+
+    #   filter tbl by band
+    if args.band in ('2', '5', '6'):
+        tbl = [row for row in tbl if bss2phy[row[2]].startswith(args.band)]
 
     #   select rate buckets based on max rate
     max_rate = 0
