@@ -74,6 +74,13 @@ for ch in chlist160:
     chsets[ch8 + 'S'] = {ch, ch2, ch3, ch4, ch5, ch6, ch7, ch8}
 
 
+chlist2G = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']
+for i in range(14):
+    chsets[chlist2G[i]] = set(chlist2G[max(i-2, 0):min(i+3, len(chlist2G))])
+
+for i in range(8):
+    chsets[chlist2G[i]+'+'] = set(chlist2G[max(i-2, 0):min(i+8, len(chlist2G))])
+
 
 def isIntf(ch1, ch2):
     global chsets
@@ -91,6 +98,7 @@ if __name__ == '__main__':
     parser.add_argument('infile', help="Input file containing 'show ap monitor ap-list' output", type=str, nargs='+')
     #parser.add_argument('outfile', help='Output Excel file', type=str, nargs='?', default='')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
+    parser.add_argument('--band', '-b', help='Radio band', type=str, default='5')
     parser.add_argument('--summary', help='Summary only', action='store_true')
     args = parser.parse_args()
 
@@ -131,12 +139,13 @@ if __name__ == '__main__':
         try:
             row[5] = int(row[5])    # curr-snr
             row[6] = int(row[6])    # curr-rssi
-            r = re.search("/(\d+[SE+-]?)/(\d+MHz)/(\w+)", row[2])   # "5GHz/36+/40MHz/VHT"
+            r = re.search(r"/(\d+)([SE+-]?)/(\d+MHz)/(\w+)", row[2])   # "5GHz/36+/40MHz/VHT"
             if r:
-                ch = r.group(1)
-                cbw = r.group(2)
-                phy = r.group(3)
-                pch = int(re.sub(r'[SE+-]', '', ch))
+                pch = r.group(1)
+                ch = pch + r.group(2)
+                pch = int(pch)
+                cbw = r.group(3)
+                phy = r.group(4)
             else:
                 print(f"invalid phy column: {row[2]}")
                 sys.exit(1)
@@ -145,12 +154,21 @@ if __name__ == '__main__':
             # sys.exit(1)
             continue
 
+        if args.band == '5' and pch < 36:
+            continue
+        if args.band == '2' and pch > 14:
+            continue
+
         #              bssid   essid                      type    encr    snr     rssi
         aplist.append([row[0], row[1], ch, pch, cbw, phy, row[3], row[4], row[5], row[6]])
-        if mych=='' and bss.endswith('(+)') and pch >= 36:
+        if mych=='' and bss.endswith('(+)'):
             mych = ch
-            myapn = bss2apn[bss[:17]]
+            myapn = bss2apn.get(bss[:17], row[0])
 
+
+    if len(aplist) == 0:
+        print("No APs found.")
+        sys.exit(0)
 
     #
     #   結果表示
@@ -167,7 +185,7 @@ if __name__ == '__main__':
     valid_coch_snr10 = 0
     for r in aplist:
         bss, ap_type, pch = r[0], r[6], r[3]
-        if (bss.endswith('0') or bss.endswith('0(+)')) and ap_type == "valid" and pch >= 36:
+        if (bss.endswith('0') or bss.endswith('0(+)')) and ap_type == "valid":
             cbw_phy = r[4] + '/' + r[5]
             apn = bss2apn[bss[:17]]
             ch = r[2]
@@ -202,7 +220,7 @@ if __name__ == '__main__':
     intf_coch_snr10 = 0
     for r in aplist:
         bss, ap_type, pch = r[0], r[6], r[3]
-        if ap_type != "valid" and pch >= 36:
+        if ap_type != "valid":
             cbw_phy = r[4] + '/' + r[5]
             apn = bss2apn[bss]
             ch  = r[2]
