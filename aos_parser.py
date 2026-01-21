@@ -1,12 +1,10 @@
+#
 #   Parse show commands and store the contents to 2-dimension lists
-#       show ap database long
-#       show ap bss-table
-#       show ap active
-#       show ap association
-#       show user-table
-#       show datapath session verbose
-#       show datapath session dpi
-#       show datapath bridge
+#   - ヘッダの幅は、次の行のセパレータ '----' で判定
+#   - 複数回のコマンド出力が含まれている場合、別個に配列に保存
+#   - コンストラクタオプション
+#       merge: 複数のコマンド出力をマージするかどうか (default: False)
+#       activeonly: ステータスが Up の AP 情報のみを含めるかどうか (default: True)
 #
 
 import re
@@ -34,13 +32,18 @@ DATAPATH_TUNNEL = "show datapath tunnel verbose"
 #   helper functions
 #
 def _get_cols_gen(tbl, *cols):
-    idx = [tbl[0].index(col) for col in cols]
-    if len(cols) == 1:
+    try:
+        idx = [tbl[0].index(col) for col in cols]
+    except ValueError as e:
+        log.err(f"Column not found: {e}")
+        return
+
+    if len(cols) == 1:  # 1列のみ指定された場合は文字列を返す
         for row in tbl[1:]:
             yield row[idx[0]]
     else:
         for row in tbl[1:]:
-            yield [row[i] for i in idx]
+            yield [row[i] for i in idx] # 複数列が指定された場合はリストを返す
 
 
 def table2str(table):
@@ -100,7 +103,12 @@ def cols2str(table, *col_names):
     for row in table:
         max_col_widths = list(map(max, max_col_widths, map(len, row)))
 
-    idx = [table[0].index(col) for col in col_names]
+    try:
+        idx = [table[0].index(col) for col in col_names]
+    except ValueError as e:
+        log.err(f"Column not found: {e}")
+        return ""
+
     fmt = ""
     for i in idx[:-1]:
         fmt += "{:" + str(max_col_widths[i]) + "}  "
@@ -384,7 +392,11 @@ class AOSParser:
             return 0
 
         tbl = self.tables[cmd][0]
-        idx = tbl[0].index(keycol)
+        try:
+            idx = tbl[0].index(keycol)
+        except ValueError as e:
+            log.err(f"Column not found: {e}")
+            return 0
         seen = set()
         new_tbl = [tbl[0]]   # ヘッダ行
 
@@ -401,7 +413,7 @@ class AOSParser:
 
     def dedup2(self, cmd, *keycol):
         '''
-        指定したコマンドのテーブルを keycol 列で重複排除する
+        指定したコマンドのテーブルを keycol 列で重複排除する。複数の列を指定可能
         :param cmd: コマンド
         :param keycol: 重複排除に使用する列名のリスト
         :return: 重複排除後のレコード数
@@ -410,7 +422,11 @@ class AOSParser:
             return 0
 
         tbl = self.tables[cmd][0]
-        idx = [tbl[0].index(col) for col in keycol]
+        try:
+            idx = [tbl[0].index(col) for col in keycol]
+        except ValueError as e:
+            log.err(f"Column not found: {e}")
+            return 0
         seen = set()
         new_tbl = [tbl[0]]   # ヘッダ行
 
