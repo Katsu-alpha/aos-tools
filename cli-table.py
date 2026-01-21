@@ -1,6 +1,6 @@
 #
 #   cli-table.py
-#   show ap debug client-table をパース
+#   show ap debug client-table をパース、ヒストグラムを表示
 #
 
 import sys
@@ -133,6 +133,8 @@ if __name__ == '__main__':
         print("No Client Table found.")
         sys.exit(0)
 
+    tbl = [row for row in tbl if row[5] != ""]      # MLO clients have empty Tx_Rate
+
     #   create BSS -> phy mapping from association table
     bss2phy = defaultdict(str)
     for row in tbl_assoc:
@@ -172,11 +174,9 @@ if __name__ == '__main__':
         mac,essid,bssid,tx_pkts,tx_retr,tx_rate,rx_rate,rx_snr,tx_chains = row
 
         # rate histogram (count only 2SS clients)
-        # if tx_chains.startswith('2'):
-        #     tx_hist[rate_idx(int(tx_rate))+1] += 1
-        #     rx_hist[rate_idx(int(rx_rate))+1] += 1
-        tx_hist[rate_idx(int(tx_rate))+1] += 1
-        rx_hist[rate_idx(int(rx_rate))+1] += 1
+        if tx_chains.startswith('2'):
+            tx_hist[rate_idx(int(tx_rate))+1] += 1
+            rx_hist[rate_idx(int(rx_rate))+1] += 1
 
         snr_hist[snr_idx(int(rx_snr))+1] += 1
 
