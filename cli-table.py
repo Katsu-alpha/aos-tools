@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
 
     cmds = ["show ap debug client-table.*", "show ap association.*"]
-    cols = ["MAC", "ESSID", "BSSID", "Tx_Pkts", "Tx_Retries", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains"]
+    cols = ["MAC", "ESSID", "BSSID", "Tx_Pkts", "Tx_Retries", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains", "Idle time"]
     cols_assoc = ["bssid", "phy"]
 
     #
@@ -133,8 +133,6 @@ if __name__ == '__main__':
         print("No Client Table found.")
         sys.exit(0)
 
-    tbl = [row for row in tbl if row[5] != ""]      # MLO clients have empty Tx_Rate
-
     #   create BSS -> phy mapping from association table
     bss2phy = defaultdict(str)
     for row in tbl_assoc:
@@ -142,9 +140,21 @@ if __name__ == '__main__':
         phy = row[1]
         bss2phy[bss] = phy
 
-    #   filter tbl by band
-    if args.band in ('2', '5', '6'):
-        tbl = [row for row in tbl if bss2phy[row[2]].startswith(args.band)]
+    #   parse client table
+    tbl2 = []
+    for r in tbl:
+        mac, ess, bss = r[0], r[1], r[2]
+        if args.band in ('2', '5', '6'):
+            if not bss2phy[bss].startswith(args.band):
+                continue
+        if r[5] == "":
+            log.info(f"Empty Tx_Rate for MAC:{mac} ESSID:{ess} BSSID:{bss}, skip.")
+            continue
+        if int(r[9]) > 1000:
+            log.info(f"Idle time {r[9]} sec for MAC:{mac} ESSID:{ess} BSSID:{bss}, skip.")
+            continue
+        tbl2.append(r)
+    tbl = tbl2
 
     #   select rate buckets based on max rate
     max_rate = 0
@@ -171,7 +181,7 @@ if __name__ == '__main__':
     rx_hist = [0] * len(rate_buckets)
     snr_hist = [0] * len(snr_buckets)
     for row in sorted(tbl, key=lambda x: int(x[5]), reverse=True):
-        mac,essid,bssid,tx_pkts,tx_retr,tx_rate,rx_rate,rx_snr,tx_chains = row
+        mac,essid,bssid,tx_pkts,tx_retr,tx_rate,rx_rate,rx_snr,tx_chains,_ = row
 
         # rate histogram (count only 2SS clients)
         if tx_chains.startswith('2'):
