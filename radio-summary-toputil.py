@@ -109,11 +109,13 @@ if __name__ == '__main__':
     tbl = []
     ch_ctr = defaultdict(lambda: 0)
     util_sum = defaultdict(lambda: 0)
+    num_match = 0
     for r in radio_summary:
         apn = r[0]
         if not re.search(args.pattern, apn):
             continue
 
+        num_match += 1
         apg = r[1]
         apt = r[2]
         band = r[4]
@@ -121,13 +123,13 @@ if __name__ == '__main__':
             continue
         mode = r[5]     # AP:VHT:56
         if mode == 'AM': continue
-        m = re.search(":(\d+[SE+\-]?)", mode)   # Channel
+        m = re.search(r":(\d+[SE+\-]?)", mode)   # Channel
         if m:
             ch = m.group(1)
-        m = re.search("([0-9\.]+)/", r[6])   # EIRP/MaxEIRP
+        m = re.search(r"([0-9\.]+)/", r[6])   # EIRP/MaxEIRP
         if m:
             eirp = float(m.group(1))
-        m = re.search("(-\d+)/(\d+)/(\d+)", r[7])     # NF/U/I
+        m = re.search(r"(-\d+)/(\d+)/(\d+)", r[7])     # NF/U/I
         if m:
             nf   = int(m.group(1))
             util = int(m.group(2))
@@ -154,12 +156,17 @@ if __name__ == '__main__':
     for r in tbl:
         print(f"{r[0]:28}{r[1]:32}{r[2]:6}{r[3]:14}{r[4]:>4}{r[5]:>7}  {r[6]:>7}{r[8]:>7}")
 
-    print(f"Total APs: {len(apn_ch_sta)}")
-    print(f"Total Radios: {len(tbl)}")
+    print('-----')
+    print(f"Total Radios: {len(radio_summary)}")
+    print(f"Matched Radios: {len(tbl)}")
+
+
+    print('\nAverage utilization by channel:')
     for ch in sorted(ch_ctr.keys(), key=lambda x: atoi(x)):
         avg = util_sum[ch] / ch_ctr[ch]
-        print(f"{ch} - {avg:.2f} ({ch_ctr[ch]} Radios)")
-
+        print(f"{ch}ch - {avg:.1f}% ({ch_ctr[ch]} Radios)")
+    tot_avg = sum(util_sum.values()) / sum(ch_ctr.values())
+    print(f"Average Utilization: {tot_avg:.1f}% ({sum(ch_ctr.values())} Radios)")
 
     #
     #   Excel 書き出し
