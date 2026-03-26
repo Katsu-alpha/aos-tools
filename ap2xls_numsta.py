@@ -26,6 +26,32 @@ def uniq(tbl):
         ret.append(r)
     return ret
 
+def uniq_aptbl(tbl):
+    # AP名が重複している場合、Radio 0/1/2 列に空欄が少ない方のエントリを選ぶ
+    idx_r0 = ap_active_tbl[0].index("Radio 0 Band Ch/EIRP/MaxEIRP/Clients")
+    idx_r1 = ap_active_tbl[0].index("Radio 1 Band Ch/EIRP/MaxEIRP/Clients")
+    try:
+        idx_r2 = ap_active_tbl[0].index("Radio 2 Band Ch/EIRP/MaxEIRP/Clients")
+    except ValueError:
+        idx_r2 = idx_r1
+    ret = []
+    k = set()
+    for r in tbl:
+        apn = r[0]
+        if apn in k:
+            for i, rr in enumerate(ret):
+                if rr[0] == apn:
+                    # どちらのエントリに空欄が少ないか比較
+                    cnt1 = sum(1 for x in r[idx_r0:idx_r2+1] if x != '')
+                    cnt2 = sum(1 for x in rr[idx_r0:idx_r2+1] if x != '')
+                    if cnt1 > cnt2:
+                        ret[i] = r
+                    break
+        else:
+            k.add(apn)
+            ret.append(r)
+    return ret
+
 
 def toi(s):
     try:
@@ -91,7 +117,7 @@ if __name__ == '__main__':
 
     ap_database_tbl = uniq(ap_database_tbl)
     print(f"{len(ap_database_tbl)-1} unique APs found in ap database.")
-    ap_active_tbl = uniq(ap_active_tbl)
+    ap_active_tbl = uniq_aptbl(ap_active_tbl)
     print(f"{len(ap_active_tbl)-1} unique APs found in active ap table.")
 
     #
