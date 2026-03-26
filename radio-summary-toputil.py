@@ -35,6 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('infile', help="Input file(s)", type=str, nargs='+')
     parser.add_argument('--pattern', '-p', help='regex for AP name', type=str, default='.*')
     parser.add_argument('--band', '-b', help='Radio band', type=str, default='5')
+    parser.add_argument('--sort', help='Sort by AP Name', action='store_true')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
     args = parser.parse_args()
 
@@ -141,8 +142,12 @@ if __name__ == '__main__':
         row = [ apn, apg, apt, mode, eirp, sta, nf, intf, util ]
         tbl.append(row)
 
-    # sort by Utilization
-    tbl.sort(key=lambda x: x[8], reverse=True)
+    if args.sort:
+        # sort by AP Name
+        tbl.sort(key=lambda x: x[0].lower())
+    else:
+        # sort by Utilization
+        tbl.sort(key=lambda x: x[8], reverse=True)
 
     print("Name                        Group                           Type  Mode          EIRP    Clients  NF    Util")
     print("----                        -----                           ----  ----          ----    -------  ---   ----")
