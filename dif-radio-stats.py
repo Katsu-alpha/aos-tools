@@ -1,8 +1,12 @@
+#!/usr/bin/env python
 #
-#   show ap debug radio-stats/client-stats をパースし、差分を表示
+#   show コマンドの複数回実行結果をパースし、カウンタ値の差分を表示
+#   error/fail 系カウンタは赤字でハイライト
+#   サポートしていないコマンドの出力は非表示 (--full オプションで表示可能)
 #
 #   History:
 #       2025/11/16  Supported multi-column output (show ap debug radius-statistics)
+#       2026/4/20   Supported show datapath frame/crypto counters
 #
 
 import sys
@@ -10,14 +14,13 @@ import re
 import argparse
 import subprocess
 
-from win32gui import ResetDC
-
 import mylogger as log
 from collections import defaultdict
 import fileinput
 from colorama import Fore, Style
 
 Color = True
+Supported = ["radio-stats", "client-stats", "radius-statistics", "pmk-sync-statistics", "datapath frame", "datapath crypto counters"]
 
 if Color:
     GREEN = Fore.GREEN
@@ -71,7 +74,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Parse show datapath message-queue counters")
     parser.add_argument('infile', help="Input file(s)", type=str, nargs='+')
-    parser.add_argument('--full', '-f', help='Full output', action='store_true')
+    parser.add_argument('--full', '-f', help='Display full output', action='store_true')
     parser.add_argument('--num', '-n', help='Display line number', action='store_true')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
     args = parser.parse_args()
@@ -114,7 +117,7 @@ if __name__ == '__main__':
                         skip_lines = 2
                         continue
 
-                    if "radio-stats" in cmd or "client-stats" in cmd or "radius-statistics" in cmd or "pmk-sync-statistics" in cmd:
+                    if any(s in cmd for s in Supported):
                         print("\n" + CYAN + l + RESET)
                         continue
                     else:
@@ -150,7 +153,11 @@ if __name__ == '__main__':
                 else:
                     # radio-stats counters
                     r = re.match(r'(.+)  +([0-9]+)$', l)
+                    if not r:
+                        # datapath counters
+                        r = re.match(r'([ |\[\]\d]+[\w ]+?) +([0-9]+) \|$', l)
                     if r:
+                        # print(f"DBUG: M1'{r.group(1)}' M2'{r.group(2)}'")
                         param = r.group(1)
                         val = int(r.group(2))
                         if ctr[cmd][param] == 0:
