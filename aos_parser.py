@@ -250,12 +250,16 @@ class AOSParser:
                         if not re.match("[0-9A-Fa-f][0-9A-Fa-f]:", line):
                             self.end_of_cmd()
                             continue
-                    elif self.cur_cmd == AP_ASSOCIATION_TABLE:
+                    elif AP_ASSOCIATION_TABLE in self.cur_cmd:
                         if line.startswith("Num Clients:"):
                             self.end_of_cmd()
                             continue
                     elif ('ap-list' in self.cur_cmd) or ('client-list' in self.cur_cmd):
                         if line.startswith("Start:") or line.startswith("dt:Discovered"):
+                            self.end_of_cmd()
+                            continue
+                    elif self.cur_cmd == 'show clients debug':
+                        if len(line) < 50:
                             self.end_of_cmd()
                             continue
                     elif line.startswith('end of '):
