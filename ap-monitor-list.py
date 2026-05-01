@@ -81,6 +81,8 @@ for i in range(14):
 for i in range(8):
     chsets[chlist2G[i]+'+'] = set(chlist2G[max(i-2, 0):min(i+8, len(chlist2G))])
 
+for i in range(5,14):
+    chsets[chlist2G[i]+'-'] = set(chlist2G[max(i-7, 0):min(i+3, len(chlist2G))])
 
 def isIntf(ch1, ch2):
     global chsets
@@ -100,6 +102,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
     parser.add_argument('--band', '-b', help='Radio band', type=str, default='5')
     parser.add_argument('--summary', help='Summary only', action='store_true')
+    parser.add_argument('--bssdic', '-d', help='Specify BSSID dictionary', type=str)
     args = parser.parse_args()
 
     if args.debug:
@@ -112,7 +115,7 @@ if __name__ == '__main__':
     #   parse AP List
     #
     # print("Parsing files ... ", end="")
-    cmd = ["show ap monitor ap-list .+","show ap bss-table"]
+    cmd = ["show ap monitor ap-list.*","show ap bss-table"]
     cols = ["bssid", "essid", "band/chan/ch-width/ht-type", "ap-type", "encr", "curr-snr", "curr-rssi"]
     aos = AOSParser(args.infile, cmd, merge=True)
     ap_list_tbl = aos.get_table(cmd[0], *cols)
@@ -122,10 +125,20 @@ if __name__ == '__main__':
         sys.exit(-1)
 
     # BSSID -> AP Name の辞書を作成
-    bss2apn = defaultdict(lambda: "")
-    if ap_bss_tbl is not None:
-        for r in ap_bss_tbl[1:]:
-            bss2apn[r[0]] = r[8]
+    if args.bssdic:
+        if args.bssdic.endswith('.py'):
+            args.bssdic = args.bssdic[:-3]
+        try:
+            bssdic = __import__(args.bssdic)
+            bss2apn = bssdic.bss2apn
+        except ImportError:
+            print(f"Error: can't import {args.bssdic}.py")
+            sys.exit(1)
+    else:
+        bss2apn = {}
+        if ap_bss_tbl is not None:
+            for r in ap_bss_tbl[1:]:
+                bss2apn[r[0]] = r[8]
 
     # print("done.")
 
@@ -173,9 +186,10 @@ if __name__ == '__main__':
     #
     #   結果表示
     #
+    bss_dedup = set()
     aplist.sort(key=lambda x: x[8], reverse=True)
     rslt = [
-        "****************** Valid APs (base BSS only) ******************",
+        "****************** Valid APs ******************",
         "",
         "                    BSSID               ESSID    Chan     CBW/PHY      Type               Enc   SNR  RSSI  AP Name",
         "                    -----               -----    ----     -------      ----               ---   ---  ----  -------",
@@ -185,9 +199,12 @@ if __name__ == '__main__':
     valid_coch_snr10 = 0
     for r in aplist:
         bss, ap_type, pch = r[0], r[6], r[3]
-        if (bss.endswith('0') or bss.endswith('0(+)')) and ap_type == "valid":
+        if ap_type == "valid":
+            if bss[:16] in bss_dedup:
+                continue
+            bss_dedup.add(bss[:16])
             cbw_phy = r[4] + '/' + r[5]
-            apn = bss2apn[bss[:17]]
+            apn = bss2apn.get(bss[:17], '')
             ch = r[2]
             snr = r[8]
             valid_tot += 1
@@ -222,7 +239,7 @@ if __name__ == '__main__':
         bss, ap_type, pch = r[0], r[6], r[3]
         if ap_type != "valid":
             cbw_phy = r[4] + '/' + r[5]
-            apn = bss2apn[bss]
+            apn = bss2apn.get(bss[:17], '')
             ch  = r[2]
             snr = r[8]
             intf_tot += 1
