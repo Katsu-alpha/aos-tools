@@ -63,8 +63,8 @@ if __name__ == '__main__':
     try:
         aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE], merge=True, encoding='utf-8')
     except UnicodeDecodeError as e:
-        print(f'UTF-8 decode error. Trying Shift-JIS...')
-        aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE], merge=True, encoding='shift-jis')
+        print(f'UTF-8 decode error. Trying MacRoman...')
+        aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE], merge=True, encoding='macroman')
 
     ap_database_tbl = aos.get_table(AP_DATABASE_LONG_TABLE)
     if ap_database_tbl is None:
