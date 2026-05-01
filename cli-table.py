@@ -1,6 +1,6 @@
 #
 #   cli-table.py
-#   show ap debug client-table をパース、ヒストグラムを表示
+#   show ap debug client-table をパース、SNR/TxRx Rates ヒストグラムを表示
 #
 
 import sys
@@ -12,6 +12,7 @@ from collections import defaultdict
 from colorama import Fore, Style
 import pandas as pd
 import matplotlib.pyplot as plt
+from glob import glob
 
 Color = True
 MIN_TXPKTS = 1000       # minimum txpkts to calculate retry rate
@@ -96,11 +97,15 @@ if __name__ == '__main__':
     else:
         log.setloglevel(log.LOG_INFO)
 
+    if '*' in args.infile:
+        infiles = glob(args.infile)
+    else:
+        infiles = args.infile
 
 
     cmds = ["show ap debug client-table.*", "show ap association.*"]
     cols = ["MAC", "ESSID", "BSSID", "Tx_Pkts", "Tx_Retries", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains", "Idle time"]
-    cols_assoc = ["bssid", "phy"]
+    cols_assoc = ["Name", "bssid", "phy"]
 
     #
     #   Parse Client Table per file
@@ -108,7 +113,7 @@ if __name__ == '__main__':
     #
     tbl = []
     tbl_assoc = []
-    for fn in args.infile:
+    for fn in infiles:
         for enc in ('utf-8', 'shift-jis', 'mac-roman'):
             try:
                 aos = AOSParser(fn, cmds, encoding=enc, merge=True)
@@ -135,13 +140,16 @@ if __name__ == '__main__':
 
     #   create BSS -> phy mapping from association table
     bss2phy = defaultdict(str)
-    for row in tbl_assoc:
-        bss = row[0]
-        phy = row[1]
+    bss2apn = defaultdict(str)
+    for r in tbl_assoc:
+        apn, bss, phy = r
         bss2phy[bss] = phy
+        bss2apn[bss] = apn
 
     #   parse client table
     tbl2 = []
+    w_ess = 0
+    w_apn = 0
     for r in tbl:
         mac, ess, bss = r[0], r[1], r[2]
         if args.band in ('2', '5', '6'):
@@ -153,6 +161,11 @@ if __name__ == '__main__':
         if int(r[9]) > 1000:
             log.info(f"Idle time {r[9]} sec for MAC:{mac} ESSID:{ess} BSSID:{bss}, skip.")
             continue
+
+        if len(ess) > w_ess:
+            w_ess = len(ess)
+        if len(bss2apn[bss]) > w_apn:
+            w_apn = len(bss2apn[bss])
         tbl2.append(r)
     tbl = tbl2
 
@@ -172,15 +185,22 @@ if __name__ == '__main__':
 
 
     #
+    #   get maxlen of columns
+    #
+
+
+
+
+    #
     #   print results
     #
-    print("MAC                ESSID                 BSSID              Retry(%)  Tx    Rx   SNR   TX_Chains")
-    print("---                -----                 -----              --------  --    --   ---   ---------")
+    print(f"MAC                {"AP Name":{w_apn}}  {"ESSID":{w_ess}}  BSSID              Phy                Retry(%)   Tx    Rx   SNR   TX_Chains")
+    print(f"---                {'-------':{w_apn}}  {'-----':{w_ess}}  -----              ---                --------   --    --   ---   ---------")
 
     tx_hist = [0] * len(rate_buckets)
     rx_hist = [0] * len(rate_buckets)
     snr_hist = [0] * len(snr_buckets)
-    for row in sorted(tbl, key=lambda x: int(x[5]), reverse=True):
+    for row in sorted(tbl, key=lambda x: (int(x[5]), int(x[6]), int(x[7])), reverse=True):
         mac,essid,bssid,tx_pkts,tx_retr,tx_rate,rx_rate,rx_snr,tx_chains,_ = row
 
         # rate histogram (count only 2SS clients)
@@ -199,8 +219,8 @@ if __name__ == '__main__':
             retr_rate = 'n/a'
 
         # print row
-        print(f'{mac}  {essid:20}  {bssid}  {retr_rate:>7}  {col_red(tx_rate,54)} {col_red(rx_rate,54)}  {col_yel_red(rx_snr,24,9)} {tx_chains}')
-
+        print(f'{mac}  {bss2apn[bssid]:{w_apn}}  {essid:{w_ess}}  {bssid}  {bss2phy[bssid]:<18}  {retr_rate:>7}  {col_red(tx_rate,54)} {col_red(rx_rate,54)}  {col_yel_red(rx_snr,24,9)} {tx_chains}')
+    
 
 
     #
