@@ -80,6 +80,7 @@ def isintf(ch1, ch2):
 
 def apn2floor(apn):
     pats = [r'(\d+|[GM])[fF]', r'B(\d+)-']
+    # pats = [r'(G\dF\d)', r'(G\dM\d)', r'(G\dF.)', r'(..F\d)AP']     # for HKJC STRC
     for p in pats:
         m = re.search(p, apn)
         if m:
@@ -173,7 +174,7 @@ if __name__ == '__main__':
     #   parse ap database and get apname -> ap model mapping
     #
     enc = ""
-    for enc in ('utf-8', 'shift-jis', 'mac-roman'):
+    for enc in ('utf-8', 'mac-roman'):
         try:
             aos = AOSParser(args.infile, [AP_DATABASE_LONG_TABLE], merge=True, encoding=enc)
         except UnicodeDecodeError as e:
@@ -203,27 +204,23 @@ if __name__ == '__main__':
 
     print("AP Name,Group,Type,Channel,Neighbor AP,Coverage AP,Co-ch AP")
     out = []
-    tbl = []
+    apinfo = {}
     cont = False
     for l in f:
-        if cont and l.startswith('Legend: '):
-            r = parse_nbr_data(out, apn, ch)
-            if r:
-                tbl.append(r)
-            cont = False
-            continue
-        elif cont and l.startswith('AP:'):
-            r = parse_nbr_data(out, apn, ch)
-            if r:
-                tbl.append(r)
-            cont = False
-            # fall through
-        elif cont:
-            out.append(l)
-            continue
+        if cont:
+            if l.startswith('Legend: ') or l.startswith('AP:'):
+                r = parse_nbr_data(out, apn, ch)        # myapn, apg, model, mych, nnbr, ncov, ncoch
+                if r:
+                    apn = r[0]
+                    if apn not in apinfo or apinfo[apn][4] < r[4]:   # update if Neighbor AP count is higher
+                        apinfo[apn] = r
+                cont = False
+            else:
+                out.append(l)
+                continue
 
-        # cont == False
-        if not l.startswith('AP:'): continue
+        if not l.startswith('AP:'):
+            continue
 
         r = re.match(r'AP:([\w-]+) MAC:[:\w]+.* Channel:(\d+[SE+-]?)+', l)
         if r:
@@ -254,8 +251,8 @@ if __name__ == '__main__':
     #   Sort tbl
     #
 
-    tbl = sorted(tbl, key=lambda x: x[0].lower())       # sort by AP name (case-insensitive)
-
+    tbl = sorted(apinfo.values(), key=lambda x: x[0].lower())       # sort by AP name (case-insensitive)
+    
 
     #
     #   Excel 書き出し
