@@ -50,7 +50,18 @@ if __name__ == '__main__':
     #   parse AP tables
     #
     print("Parsing files ... ", end="")
-    aos = AOSParser(args.infile, ["show user-table", "show datapath session dpi", "show datapath session internal"], merge=True)
+    cmds = ["show user-table", "show datapath session dpi", "show datapath session internal"]
+    for enc in ('utf-8', 'mac-roman'):
+        try:
+            aos = AOSParser(args.infile, cmds, merge=True, encoding=enc)
+        except UnicodeDecodeError as e:
+            print(f'{enc} decode error.')
+            continue
+        break   # decode success
+    else:
+        print("unknown encoding, abort.")
+        sys.exit(-1)
+
     dp_ses = aos.get_table("show datapath session dpi")
     if dp_ses is None:
         dp_ses = aos.get_table("show datapath session internal")
