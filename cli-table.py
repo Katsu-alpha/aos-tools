@@ -37,7 +37,7 @@ else:
 # rate_buckets = [0, 30, 60, 100, 150, 220, 300]
 # rate_buckets = [i*20 for i in range(16)]
 # for 20MHz channel (11ac)
-rate_buckets180 = [0, 10, 25, 40, 60, 80, 100, 140, 180]
+rate_buckets200 = [0, 10, 25, 40, 60, 80, 110, 150, 200]
 
 # for 20MHz channel
 rate_buckets300 = [0, 20, 40, 60, 90, 120, 170, 230, 300]
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         infiles = args.infile
 
 
-    cmds = ["show ap debug client-table.*", "show ap association.*"]
+    cmds = ["show ap debug client-table.*", "show ap remote debug association .*", "show ap association.*"]
     cols = ["MAC", "ESSID", "BSSID", "Tx_Pkts", "Tx_Retries", "Tx_Rate", "Rx_Rate", "Last_Rx_SNR", "TX_Chains", "Idle time"]
     cols_assoc = ["Name", "bssid", "phy"]
 
@@ -133,6 +133,10 @@ if __name__ == '__main__':
         assoc_tbl = aos.get_table(cmds[1], *cols_assoc)
         if assoc_tbl is not None:
             tbl_assoc.extend(assoc_tbl)
+        else:
+            assoc_tbl = aos.get_table(cmds[2], *cols_assoc)
+            if assoc_tbl is not None:
+                tbl_assoc.extend(assoc_tbl)
 
     if len(tbl) == 0:
         print("No Client Table found.")
@@ -174,8 +178,8 @@ if __name__ == '__main__':
     for row in tbl:
         max_rate = max(max_rate, int(row[5]), int(row[6]))
 
-    if max_rate <= 180:
-        rate_buckets = rate_buckets180
+    if max_rate <= 200:
+        rate_buckets = rate_buckets200
     elif max_rate <= 300:
         rate_buckets = rate_buckets300
     elif max_rate <= 600:
@@ -194,8 +198,8 @@ if __name__ == '__main__':
     #
     #   print results
     #
-    print(f"MAC                {"AP Name":{w_apn}}  {"ESSID":{w_ess}}  BSSID              Phy                Retry(%)   Tx    Rx   SNR   TX_Chains")
-    print(f"---                {'-------':{w_apn}}  {'-----':{w_ess}}  -----              ---                --------   --    --   ---   ---------")
+    print(f"MAC                {"AP Name":{w_apn}}  {"ESSID":{w_ess}}  BSSID              Phy                 Retry(%)   Tx    Rx   SNR   TX_Chains")
+    print(f"---                {'-------':{w_apn}}  {'-----':{w_ess}}  -----              ---                 --------   --    --   ---   ---------")
 
     tx_hist = [0] * len(rate_buckets)
     rx_hist = [0] * len(rate_buckets)
@@ -219,7 +223,7 @@ if __name__ == '__main__':
             retr_rate = 'n/a'
 
         # print row
-        print(f'{mac}  {bss2apn[bssid]:{w_apn}}  {essid:{w_ess}}  {bssid}  {bss2phy[bssid]:<18}  {retr_rate:>7}  {col_red(tx_rate,54)} {col_red(rx_rate,54)}  {col_yel_red(rx_snr,24,9)} {tx_chains}')
+        print(f'{mac}  {bss2apn[bssid]:{w_apn}}  {essid:{w_ess}}  {bssid}  {bss2phy[bssid]:<19}  {retr_rate:>7}  {col_red(tx_rate,54)} {col_red(rx_rate,54)}  {col_yel_red(rx_snr,24,9)} {tx_chains}')
     
 
 
