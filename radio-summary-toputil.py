@@ -63,6 +63,7 @@ if __name__ == '__main__':
     parser.add_argument('--pattern', '-p', help='regex for AP name', type=str, default='.*')
     parser.add_argument('--band', '-b', help='Radio band', type=str, default='5')
     parser.add_argument('--sort', help='Sort by AP Name', action='store_true')
+    parser.add_argument('--assoc', help='Sort by number of associated clients', action='store_true')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
     args = parser.parse_args()
 
@@ -177,6 +178,9 @@ if __name__ == '__main__':
     if args.sort:
         # sort by AP Name
         tbl.sort(key=lambda x: x[0].lower())
+    elif args.assoc:
+        # sort by number of associated clients
+        tbl.sort(key=lambda x: x[5], reverse=True)
     else:
         # sort by Utilization
         tbl.sort(key=lambda x: x[8], reverse=True)
