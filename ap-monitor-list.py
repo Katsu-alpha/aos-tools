@@ -78,7 +78,7 @@ chlist2G = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13',
 for i in range(14):
     chsets[chlist2G[i]] = set(chlist2G[max(i-2, 0):min(i+3, len(chlist2G))])
 
-for i in range(8):
+for i in range(9):
     chsets[chlist2G[i]+'+'] = set(chlist2G[max(i-2, 0):min(i+8, len(chlist2G))])
 
 for i in range(5,14):
