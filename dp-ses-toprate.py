@@ -50,7 +50,7 @@ if __name__ == '__main__':
     #   parse AP tables
     #
     print("Parsing files ... ", end="")
-    cmds = ["show user-table", "show datapath session dpi", "show datapath session internal"]
+    cmds = ["show user-table", "show datapath session dpi", "show datapath session internal", "show switches"]
     for enc in ('utf-8', 'mac-roman'):
         try:
             aos = AOSParser(args.infile, cmds, merge=True, encoding=enc)
@@ -62,17 +62,25 @@ if __name__ == '__main__':
         print("unknown encoding, abort.")
         sys.exit(-1)
 
-    dp_ses = aos.get_table("show datapath session dpi")
+    dp_ses = aos.get_table(cmds[1])
     if dp_ses is None:
-        dp_ses = aos.get_table("show datapath session internal")
+        dp_ses = aos.get_table(cmds[2])
         if dp_ses is None:
             print("show datapath session dpi|internal output not found.")
             sys.exit(-1)
-    user_tbl = aos.get_table("show user-table")
+
+    user_tbl = aos.get_table(cmds[0])
     if user_tbl is None:
         print("show user-table output not found.")
         sys.exit(-1)
     print(f"done. {len(dp_ses)-1} session entries found.")
+
+    sw_tbl = aos.get_table(cmds[3])
+    if sw_tbl is not None:
+        sw_ips = [r[0] for r in sw_tbl[1:]]
+        print(f"Switch IPs: {", ".join(sw_ips)}")
+    else:
+        sw_ips = []
 
     #
     #   parse user-table and create IP to AP Name mapping
@@ -104,12 +112,14 @@ if __name__ == '__main__':
 
     for r in dp_ses[1:]:
         tage = int(r[idx_tage], 16)
-        if tage <= 5: continue          # ignore short-lived session
+        # if tage <= 5: continue          # ignore short-lived session
         if r[2] == '47': continue       # ignore GRE tunnel
         if r[idx_bytes] == '0' or r[idx_pkts] == '0':
             continue        # ignore session with no traffic
         sip = r[0]
         dip = r[1]
+        if sip in sw_ips or dip in sw_ips:
+            continue        # ignore sessions involving switch IPs
         sap = ip2apn.get(sip, '')
         dap = ip2apn.get(dip, '')
         if (not re.search(args.pattern, sap)) and (not re.search(args.pattern, dap)):
@@ -123,7 +133,10 @@ if __name__ == '__main__':
 
         flags = r[idx_flags]
         bytes = int(r[idx_bytes])
-        bitrate = bytes*8/tage
+        if tage >= 5:
+            bitrate = bytes*8/tage
+        else:
+            bitrate = 0
         tot_br += bitrate
         avg_pkt_size = bytes / int(r[idx_pkts])
         # SIP, SAP, DIP, DAP, Proto, SPort, DPort, ToS, TAge, Bytes, AvgPKtSize, Bitrate, Flags, AppID
