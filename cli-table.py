@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from glob import glob
 
 Color = True
-MIN_TXPKTS = 1000       # minimum txpkts to calculate retry rate
+MIN_TXPKTS = 300       # minimum txpkts to calculate retry rate
 
 if Color:
    GREEN = Fore.GREEN
@@ -88,6 +88,7 @@ if __name__ == '__main__':
         description=f"Parse 'show ap debug client-table'")
     parser.add_argument('infile', help="Input files(s) containing 'show ap debug client-table' output", type=str, nargs='+')
     #parser.add_argument('outfile', help='Output Excel file', type=str, nargs='?', default='')
+    parser.add_argument('--snr', help='Sort by SNR', action='store_true')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
     parser.add_argument('--band', '-b', help='Radio band (2/5:default/6)', type=str, default='all')
     args = parser.parse_args()
@@ -204,7 +205,13 @@ if __name__ == '__main__':
     tx_hist = [0] * len(rate_buckets)
     rx_hist = [0] * len(rate_buckets)
     snr_hist = [0] * len(snr_buckets)
-    for row in sorted(tbl, key=lambda x: (int(x[5]), int(x[6]), int(x[7])), reverse=True):
+
+    if args.snr:
+        tbl.sort(key=lambda x: int(x[7]), reverse=True)   # sort by SNR
+    else:
+        tbl.sort(key=lambda x: (int(x[5]), int(x[6]), int(x[7])), reverse=True)   # sort by Tx/Rx/SNR
+
+    for row in tbl:
         mac,essid,bssid,tx_pkts,tx_retr,tx_rate,rx_rate,rx_snr,tx_chains,_ = row
 
         # rate histogram (count only 2SS clients)
@@ -223,7 +230,7 @@ if __name__ == '__main__':
             retr_rate = 'n/a'
 
         # print row
-        print(f'{mac}  {bss2apn[bssid]:{w_apn}}  {essid:{w_ess}}  {bssid}  {bss2phy[bssid]:<19}  {retr_rate:>7}  {col_red(tx_rate,54)} {col_red(rx_rate,54)}  {col_yel_red(rx_snr,24,9)} {tx_chains}')
+        print(f'{mac}  {bss2apn[bssid]:{w_apn}}  {essid:{w_ess}}  {bssid}  {bss2phy[bssid]:<19}  {retr_rate:>7}  {col_red(tx_rate,54)} {col_red(rx_rate,54)}  {col_yel_red(rx_snr,29,9)} {tx_chains}')
     
 
 
