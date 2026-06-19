@@ -38,7 +38,7 @@ if __name__ == '__main__':
     #   parse AP List
     #
     print("Parsing files ... ", end="")
-    cmd = "show ap monitor ap-list .+"
+    cmd = "show ap monitor ap-list.*"
     aos = AOSParser(args.infile, cmd)
     ap_list_tbl = aos.get_table(cmd)
     if ap_list_tbl is None:
