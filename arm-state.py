@@ -50,7 +50,7 @@ allitf = 0
 
 chlist = ['36', '40', '44', '48', '52', '56', '60', '64', '100', '104', '108', '112', '116', '120', '124', '128', '132', '136', '140', '144', '149', '153', '157', '161', '165']
 chlist40 = ['36', '44', '52', '60', '100', '108', '116', '124', '132', '140', '149', '157']
-chlist80 = ['36', '52', '100', '116', '149']
+chlist80 = ['36', '52', '100', '116', '132', '149']
 
 chsets = {}
 
@@ -69,6 +69,15 @@ for ch in chlist80:
     chsets[ch3 + 'E'] = {ch, ch2, ch3, ch4}
     chsets[ch4 + 'E'] = {ch, ch2, ch3, ch4}
 
+chlist2G = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']
+for i in range(14):
+    chsets[chlist2G[i]] = set(chlist2G[max(i-2, 0):min(i+3, len(chlist2G))])
+
+for i in range(9):
+    chsets[chlist2G[i]+'+'] = set(chlist2G[max(i-2, 0):min(i+8, len(chlist2G))])
+
+for i in range(5,14):
+    chsets[chlist2G[i]+'-'] = set(chlist2G[max(i-7, 0):min(i+3, len(chlist2G))])
 
 
 def isintf(ch1, ch2):
@@ -162,7 +171,8 @@ if __name__ == '__main__':
         description="Parse show ap tech and display neighbor APs")
     parser.add_argument('infile', help="Input file(s)", type=str, nargs='+')
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
-    parser.add_argument('--pattern', '-p', help='regex for AP name', type=str, default='.*')
+    parser.add_argument('--pattern', '-p', help='Regex for AP name', type=str, default='.*')
+    parser.add_argument('--band', '-b', help='Radio band', type=str, default='5')
     args = parser.parse_args()
 
     if args.debug:
@@ -222,12 +232,12 @@ if __name__ == '__main__':
         if not l.startswith('AP:'):
             continue
 
-        r = re.match(r'AP:([\w-]+) MAC:[:\w]+.* Channel:(\d+[SE+-]?)+', l)
+        r = re.match(r'AP:([\w-]+) MAC:[:\w]+ Band:([\w.]+) Channel:(\d+[SE+-]?)+', l)
         if r:
             apn = r.group(1)
-            ch = r.group(2)
-            chi = int(re.sub(r'[SE+-]', '', ch))
-            if chi < 36 or chi & 3 != 0:
+            band = r.group(2)
+            ch = r.group(3)
+            if band[0] != args.band:
                 continue
             cont = True
             out = ["show ap arm state\n"]
