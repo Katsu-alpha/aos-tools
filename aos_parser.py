@@ -31,6 +31,19 @@ DATAPATH_TUNNEL = "show datapath tunnel verbose"
 #
 #   helper functions
 #
+def _split_cols_by_utf8_bytes(text, idx):
+    """
+    Split fixed-width columns by UTF-8 byte offsets.
+    idx contains each column's start position in bytes.
+    """
+    b = text.encode('utf-8')
+    row = []
+    for i, start in enumerate(idx):
+        end = idx[i + 1] if i + 1 < len(idx) else None
+        col = b[start:end].decode('utf-8', errors='ignore').rstrip()
+        row.append(col)
+    return row
+
 def _get_cols_gen(tbl, *cols):
     try:
         idx = [tbl[0].index(col) for col in cols]
@@ -276,8 +289,9 @@ class AOSParser:
                     #
                     #   split columns and add them to a list
                     #
-                    row = [line[idx[i]:idx[i + 1]].rstrip() for i in range(len(idx) - 1)]
-                    row.append(line[idx[-1]:].rstrip())
+                    # row = [line[idx[i]:idx[i + 1]].rstrip() for i in range(len(idx) - 1)]
+                    # row.append(line[idx[-1]:].rstrip())
+                    row = _split_cols_by_utf8_bytes(line, idx)
 
                     #
                     #   apply some filter
