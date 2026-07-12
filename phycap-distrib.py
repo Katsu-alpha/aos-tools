@@ -170,7 +170,7 @@ if __name__ == '__main__':
         if isvht: numvht+=1
         if ishe: numhe+=1
 
-        r = re.search("-(\d)ss", phycap)
+        r = re.search(r"-(\d)ss", phycap)
         if r:
             ss = int(r.group(1))
         else:
