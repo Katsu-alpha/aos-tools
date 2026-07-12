@@ -81,6 +81,8 @@ for r in assoc_tbl:
         continue        # skip non-associated clients
     if mac in mac2phy:
         continue        # already processed
+    if not re.search(args.pattern, name):
+        continue        # skip APs not matching pattern
     if vlan != '':
         mac2vlan[mac] = int(vlan)
     else:
@@ -93,6 +95,7 @@ for r in assoc_tbl:
 #
 ess2vlanset = defaultdict(set)
 userctr = defaultdict(int)          # users per SSID
+userctr_band = defaultdict(lambda: defaultdict(int))      # users per SSID per Band
 macset = set()                      # for de-dup
 cap_band = defaultdict(int, {'2.4GHz':0, '5GHz':0})
 cap_gen = defaultdict(int, {'Legacy':0, '11n':0, '11ac':0, '11ax':0})
@@ -119,8 +122,9 @@ for r in user_tbl:
     vlan = mac2vlan[mac]
     ess = mac2ess[mac]
     ess2vlanset[ess].add(vlan)
-    userctr[ess] += 1
     phy = mac2phy[mac]
+    userctr[ess] += 1
+    userctr_band[ess][phy[0]] += 1
     os = "N/A" if os == '' else os
 
     if re.search(args.ssid, ess):
@@ -166,7 +170,7 @@ if cap_gen['Legacy'] == 0:
 #
 print("\nUser count per ESSID:")
 for ess, count in sorted(userctr.items(), key=lambda x: x[1], reverse=True):
-    print(f"{ess:20}: {count}")
+    print(f"{ess:20}: {count} (2.4GHz:{userctr_band[ess]['2']}/5GHz:{userctr_band[ess]['5']})")
 
 print("\nVLANs per ESSID:")
 for ess in sorted(ess2vlanset.keys()):
