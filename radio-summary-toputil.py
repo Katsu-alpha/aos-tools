@@ -61,6 +61,7 @@ if __name__ == '__main__':
         description="Parse show radio-summary and sort the 5GHz radios by channel utilization")
     parser.add_argument('infile', help="Input file(s)", type=str, nargs='+')
     parser.add_argument('--pattern', '-p', help='regex for AP name', type=str, default='.*')
+    parser.add_argument('--group', '-g', help='regex for AP group', type=str, default='.*')
     parser.add_argument('--band', '-b', help='Radio band', type=str, default='5')
     parser.add_argument('--sort', help='Sort by AP Name', action='store_true')
     parser.add_argument('--assoc', help='Sort by number of associated clients', action='store_true')
@@ -140,14 +141,13 @@ if __name__ == '__main__':
     tbl = []
     ch_ctr = defaultdict(lambda: 0)
     util_sum = defaultdict(lambda: 0)
-    num_match = 0
     for r in radio_summary:
         apn = r[0]
         if not re.search(args.pattern, apn):
             continue
-
-        num_match += 1
         apg = r[1]
+        if not re.search(args.group, apg):
+            continue
         apt = r[2]
         band = r[4]
         if not band.startswith(args.band):
