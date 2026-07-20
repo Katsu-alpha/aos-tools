@@ -46,7 +46,7 @@ else:
     RESET = ""
 
 
-re_prompt = r'[\)\]] \*?#|Command: |COMMAND='
+re_prompt = r'^[\)\]] \*?#|^Command: |^COMMAND=|^show '
 
 # Stats counter
 # key: [command][parameter]
