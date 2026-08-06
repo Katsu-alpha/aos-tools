@@ -15,7 +15,7 @@ from colorama import Fore, Style
 from collections import defaultdict
 import plotly.graph_objects as go
 import plotly.express as px
-
+from ouimap import ouimap
 
 #
 #   display pie chart
@@ -102,6 +102,8 @@ cap_gen = defaultdict(int, {'Legacy':0, '11n':0, '11ac':0, '11ax':0})
 cap_ss = defaultdict(int, {'1ss':0, '2ss':0})
 cap_randmac = defaultdict(int, {'Normal MAC':0, 'Random MAC':0})
 cap_os = defaultdict(int)
+vendor = defaultdict(int)
+ouis = {}
 
 print(f"Total {len(user_tbl)} client records found.")
 for r in user_tbl:
@@ -114,6 +116,7 @@ for r in user_tbl:
         log.info(f"Duplicate record for {mac}, skipping...")
         continue
     macset.add(mac)
+
 
     if mac not in mac2vlan:
         log.warn(f"No assoc info found for {mac}, skipping...")
@@ -158,6 +161,13 @@ for r in user_tbl:
 
         cap_os[os] += 1
 
+        oui = mac[:8].lower()
+        if oui in ouimap:
+            vendor[ouimap[oui][:10]] += 1
+            ouis[oui] = ouimap[oui]
+        else:
+            vendor['Unknown'] += 1
+
 if cap_gen['Legacy'] == 0:
     del(cap_gen['Legacy'])
     if cap_gen['11n'] == 0:
@@ -180,17 +190,28 @@ for ess in sorted(ess2vlanset.keys()):
     vlans_str = ', '.join(map(str, sorted(vlans)))
     print(f"{ess:20}: {vlans_str}")
 
-print()
+print("\nVendor distribution:")
+for v, count in sorted(vendor.items(), key=lambda x: x[1], reverse=True):
+    print(f"{v:20}: {count}")
+
+# print("OUIs found:")
+# for oui, vendor_name in sorted(ouis.items(), key=lambda x: x[1]):
+#     print(f"{oui}  {vendor_name}")
 
 #   Draw pie charts using plotly
 col1 = dict(colors=px.colors.qualitative.Set1, line=dict(color='#ffffff', width=1))
 col2 = dict(colors=px.colors.qualitative.Safe, line=dict(color='#ffffff', width=1))
 col3 = dict(colors=px.colors.qualitative.Plotly, line=dict(color='#ffffff', width=1))
-draw_pie_chart(cap_band, "Radio Band", f'client_cap_band.png', col1)
+try:
+    draw_pie_chart(cap_band, "Radio Band", f'client_cap_band.png', col1)
+except ValueError as e:
+    print(f"Drawing charts not supported on this python.")
+    sys.exit(0)
 draw_pie_chart(cap_gen, "Wi-Fi Generation", f'client_cap_gen.png', col1)
 draw_pie_chart(cap_ss, "Spatial Streams", f'client_cap_ss.png', col1)
 draw_pie_chart(cap_randmac, "MAC Type", f'client_cap_mac.png', col2)
 draw_pie_chart(cap_os, "OS", f'client_cap_os.png', col2)
+draw_pie_chart(vendor, "Vendor", f'client_cap_vendor.png', col2)
 draw_pie_chart(userctr, "Clients per SSID", f'clients_per_ssid.png', col3, width=600)
 
 sys.exit(0)
