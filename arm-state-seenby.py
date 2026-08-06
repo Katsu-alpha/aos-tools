@@ -71,7 +71,7 @@ def parse_nbr_data(out, myapn, mych):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(
-        description="Parse show ap tech and display neighbor APs")
+        description="Parse show ap arm state display the SNR for target AP detected on each neighbor AP")
     parser.add_argument('infile', help="Input file(s)", type=str)
     parser.add_argument('apname', help="AP name", type=str)
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
@@ -154,7 +154,8 @@ if __name__ == '__main__':
 
     printProgressBar(i, total)  # 100% Complete
 
-    seenby.sort(key=lambda x: x[2])   # sort by PathLoss
+    # seenby.sort(key=lambda x: x[2])   # sort by PathLoss
+    seenby.sort(key=lambda x: x[1], reverse=True)   # sort by SNR
 
     print(f'AP "{args.apname}" is seen by:')
     for r in seenby:
