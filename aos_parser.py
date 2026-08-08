@@ -366,6 +366,17 @@ class AOSParser:
         return self.tables[cmd][0]
 
 
+    def get_table_header(self, cmd):
+        '''
+        コマンドの最初の結果テーブルのヘッダを取得(カラムのリスト)
+        :param cmd: コマンド
+        :return: コマンド結果テーブルのヘッダ行
+        '''
+        if cmd not in self.tables or len(self.tables[cmd])==0:
+            return None
+        return self.tables[cmd][0][0]
+
+
     def get_table_key(self, cmd, key, val, *cols):
         '''
         コマンドの結果テーブルから key==val の列をすべて取得する
