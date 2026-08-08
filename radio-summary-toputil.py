@@ -26,7 +26,22 @@ def atoi(s):
         return 0
 
 
+
 def uniq_aptbl(tbl):
+    # AP名が重複している場合、最初に出てきた行を残す
+    ret = []
+    k = set()
+    for r in tbl:
+        apn = r[0]
+        if apn in k:
+            continue
+        else:
+            k.add(apn)
+            ret.append(r)
+    return ret
+
+
+def uniq_apact_tbl(tbl):
     # AP名が重複している場合、Radio 0/1/2 列に空欄が少ない方のエントリを選ぶ
     idx_r0 = ap_active_tbl[0].index("Radio 0 Band Ch/EIRP/MaxEIRP/Clients")
     idx_r1 = ap_active_tbl[0].index("Radio 1 Band Ch/EIRP/MaxEIRP/Clients")
@@ -80,7 +95,7 @@ if __name__ == '__main__':
     print("Parsing files ... ", end="")
     for enc in ('utf-8', 'shift-jis', 'mac-roman'):
         try:
-            aos = AOSParser(args.infile, ["show ap radio-summary"], merge=False, encoding=enc)
+            aos = AOSParser(args.infile, ["show ap radio-summary"], merge=True, encoding=enc)
         except UnicodeDecodeError as e:
             continue
         break   # encode success
@@ -99,17 +114,18 @@ if __name__ == '__main__':
         print("show ap active output not found.")
         sys.exit(-1)
 
-    ap_active_tbl = uniq_aptbl(ap_active_tbl)
+    # ap_active_tbl = uniq_aptbl(ap_active_tbl)
 
     print("done.")
 
     #
     #   show ap active から Radio0, Radio1, Radio2 の client 数取得
+    #   同じ AP/Ch に対し複数エントリがある場合、ユーザ数が多い方を採用
     #
     idx_r0 = ap_active_tbl[0].index("Radio 0 Band Ch/EIRP/MaxEIRP/Clients")
     idx_r1 = ap_active_tbl[0].index("Radio 1 Band Ch/EIRP/MaxEIRP/Clients")
     idx_r2 = ap_active_tbl[0].index("Radio 2 Band Ch/EIRP/MaxEIRP/Clients")
-    apn_ch_sta = defaultdict(lambda: {})
+    apn_ch_sta = defaultdict(lambda: defaultdict(int))
 
     for row in ap_active_tbl[1:]:
         apn = row[0]
@@ -119,21 +135,21 @@ if __name__ == '__main__':
         if r:
             ch = r.group(1)
             nsta = int(r.group(2))
-            apn_ch_sta[apn][ch] = nsta
+            apn_ch_sta[apn][ch] = max(apn_ch_sta[apn][ch], nsta)
 
         r1 = row[idx_r1]
         r = re.search(r":(\d+[SE+\-]?)/[\d\.]+/[\d\.]+/(\d+)$", r1)
         if r:
             ch = r.group(1)
             nsta = int(r.group(2))
-            apn_ch_sta[apn][ch] = nsta
+            apn_ch_sta[apn][ch] = max(apn_ch_sta[apn][ch], nsta)
 
         r2 = row[idx_r2]
         r = re.search(r":(\d+[SE+\-]?)/[\d\.]+/[\d\.]+/(\d+)$", r2)
         if r:
             ch = r.group(1)
             nsta = int(r.group(2))
-            apn_ch_sta[apn][ch] = nsta
+            apn_ch_sta[apn][ch] = max(apn_ch_sta[apn][ch], nsta)
 
     #
     #   radio-summary の必要な column のみ取り出す
@@ -184,6 +200,8 @@ if __name__ == '__main__':
     else:
         # sort by Utilization
         tbl.sort(key=lambda x: x[8], reverse=True)
+
+        tbl = uniq_aptbl(tbl)
 
     print("Name                        Group                           Type  Mode          EIRP    Clients  NF    Util")
     print("----                        -----                           ----  ----          ----    -------  ---   ----")
