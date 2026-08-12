@@ -1,7 +1,7 @@
 #!/usr/bin/python3 -u
 #
 #   show airmatch event radar パースし、radar-stats.xlsx に書き出す
-#   MIN_THRESHOLD 回未満の AP は無視
+#   --min <num> 回未満の AP は無視
 #
 
 import sys
@@ -12,6 +12,7 @@ from aos_parser import AOSParser
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from collections import defaultdict
+from utils import load_csv
 
 
 MIN_THRESHOLD = 2
@@ -24,6 +25,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="parse radar events and export the summary to radar-stats.xlsx")
     parser.add_argument('files', type=str, nargs='*')
+    parser.add_argument('--min', help='Minimum radar threshold', type=int, default=2)
     parser.add_argument('--debug', help='debug log', action='store_true')
     args = parser.parse_args()
 
@@ -38,6 +40,33 @@ if __name__ == '__main__':
     #radar_cmd = "show airmatch event radar all-aps"
     radar_cmd = "show airmatch event .+"
     aos = AOSParser(args.files, radar_cmd, merge=True)
+    radar_tbl = aos.get_table(radar_cmd, "APName", "Chan")
+
+    if radar_tbl is None:
+        # fall back to csv (exported from Central events)
+        tbl = load_csv(args.files[0])
+
+        try:
+            idx_name = tbl[0].index("Device Hostname")
+        except ValueError:
+            print("Error: 'Device Hostname' column not found in CSV file.")
+            sys.exit(1)
+        try:
+            idx_desc = tbl[0].index("Description")
+        except ValueError:
+            print("Error: 'Description' column not found in CSV file.")
+            sys.exit(1)
+
+        radar_tbl = []
+        for r in tbl[1:]:
+            apn = r[idx_name]
+            desc = r[idx_desc]
+            m = re.search(r'channel (\d+)', desc)
+            if m:
+                ch = m.group(1)
+                radar_tbl.append([apn, ch])
+
+
 
     #
     #   collect stats
@@ -45,7 +74,7 @@ if __name__ == '__main__':
     radar_num = defaultdict(int)
     radar_ch = defaultdict(lambda: defaultdict(int))
     is144 = False
-    for r in aos.get_table(radar_cmd, "APName", "Chan"):
+    for r in radar_tbl:
         apn, ch = r
         ch = int(ch)
         if ch == 144:
@@ -66,7 +95,7 @@ if __name__ == '__main__':
 
     for apn in sorted(radar_num.keys(), key=lambda x:radar_num[x], reverse=True):
         #print(f"{apn:28}{radar_num[apn]} : ")
-        if radar_num[apn] < MIN_THRESHOLD:
+        if radar_num[apn] < args.min:
             break         # ignore APs with very few radar events
         nums = [radar_ch[apn][ch] if ch in radar_ch[apn] else 0 for ch in dfs_ch]
         ws.append([apn] + nums)
