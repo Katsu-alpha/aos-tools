@@ -1,7 +1,14 @@
 #
 #   phycap-distrib.py
 #
-#   show ap association で、各端末の phy_cap をカウント
+#   show ap association, show ap bss-table をパースし、以下を集計
+#   - 2.4GHz/5GHz/6GHz STA数
+#   - HT/VHT/HE STA数
+#   - 1ss/2ss/3ss/4ss STA数
+#   - OS別 STA数
+#   - SSID別 AP数/STA数
+#   - チャネル別 STA数
+#   - SSID-VLANマッピング
 #
 
 import sys
@@ -69,13 +76,13 @@ if __name__ == '__main__':
     #   parse AP tables
     #
     print("Parsing files ... ", end="")
-    aos = AOSParser(args.infile, ["show ap association", "show user-table", "show ap bss-table"], merge=True)
-    user_table  = aos.get_table("show user-table")
-    assoc_table = aos.get_table("show ap association")
-    bss_table   = aos.get_table("show ap bss-table")
-    if user_table is None:
-        print("show user-table output not found.")
-        sys.exit(-1)
+    cmds = ["show ap association", "show ap bss-table", "show user-table", "show clients debug"]
+    aos = AOSParser(args.infile, cmds, merge=True)
+    assoc_table = aos.get_table(cmds[0], 'Name', 'bssid', 'mac', 'assoc', 'essid', 'vlan-id', 'phy_cap')
+    bss_table   = aos.get_table(cmds[1])
+    user_table  = aos.get_table(cmds[2], 'AP name', 'MAC', 'Type')
+    cli_table   = aos.get_table(cmds[3], 'Access Point', 'MAC Address', 'OS')
+
     if assoc_table is None:
         print("show ap association output not found.")
         sys.exit(-1)
@@ -93,17 +100,29 @@ if __name__ == '__main__':
     mac2os = {}
     apnctr = defaultdict(lambda: 0)
     flrctr = defaultdict(lambda: 0)
-    for r in user_table[1:]:
-        apn = r[7]
-        if not re.search(args.pattern, apn):
-            continue
 
-        mac = r[1]
-        apnctr[apn] += 1
-        flrctr[floorname(apn)] += 1
+    if user_table is not None:
+        for r in user_table:
+            apn, mac, os = r
+            if not re.search(args.pattern, apn):
+                continue
 
-        os = r[12] or 'unknown'
-        mac2os[mac] = os
+            apnctr[apn] += 1
+            flrctr[floorname(apn)] += 1
+            mac2os[mac] = os or 'unknown'
+
+    if cli_table is not None:
+        for r in cli_table:
+            apn, mac, os = r
+            if not re.search(args.pattern, apn):
+                continue
+
+            apnctr[apn] += 1
+            flrctr[floorname(apn)] += 1
+            mac2os[mac] = os or 'unknown'
+
+
+
 
     #
     #   create BSS -> channel map
@@ -130,29 +149,32 @@ if __name__ == '__main__':
     #   phy_cap カウント
     #
     numsta = 0
-    num5G = 0
-    num2G = 0
+    numsta_radio = [0, 0, 0]
     numht = 0
     numvht = 0
     numhe = 0
     numss = [0,0,0,0,0]
     os_numss = defaultdict(lambda: [0,0,0,0,0])
     essctr = defaultdict(lambda: 0)
-    essctrphy = defaultdict(lambda: [0, 0])
+    essctrphy = defaultdict(lambda: [0, 0, 0])
     chctr = defaultdict(lambda: 0)
     essvlan = defaultdict(lambda: set())
-    for r in assoc_table[1:]:
+    for r in assoc_table:
         if not re.search(args.pattern, r[0]):
             continue
 
+        name, bss, mac, assoc, essid, vlan, phycap = r
+        if assoc != 'y':
+            continue
         numsta += 1
-        bss = r[1]
-        mac = r[2]
-        essid = r[7]
-        vlan = r[8]
-        phycap = r[15]
 
-        is5G = True if "5GHz" in phycap else False
+        if '5GHz' in phycap:
+            radio = 1
+        elif '6GHz' in phycap:
+            radio = 2
+        else:
+            radio = 0
+
         isht = True if "-HT-" in phycap else False
         isvht = True if "-VHT-" in phycap else False
         ishe = True if "-HE-" in phycap else False
@@ -160,12 +182,9 @@ if __name__ == '__main__':
         essctr[essid] += 1
         essvlan[essid].add(vlan)
 
-        if is5G:
-            num5G+=1
-            essctrphy[essid][1] += 1
-        else:
-            num2G+=1
-            essctrphy[essid][0] += 1
+
+        numsta_radio[radio] += 1
+        essctrphy[essid][radio] += 1
         if isht: numht+=1
         if isvht: numvht+=1
         if ishe: numhe+=1
@@ -182,35 +201,36 @@ if __name__ == '__main__':
 
         chctr[bss2ch[bss]] += 1
 
-    print(f"2.4GHz:{num2G}, 5GHz:{num5G}, Total:{numsta}")
+    print('--- Client capability distribution ---')
+    print(f"2.4GHz:{numsta_radio[0]}, 5GHz:{numsta_radio[1]}, 6GHz:{numsta_radio[2]}, Total:{numsta}")
     print(f"non-HT:{numsta-numht-numvht-numhe}, HT:{numht}, VHT:{numvht}, HE:{numhe}")
     print(f"1ss:{numss[1]}, 2ss:{numss[2]}, 3ss:{numss[3]}, 4ss:{numss[4]}")
 
-    print()
+    print("\n--- OS/nss distribution ---")
     for os in sorted(os_numss.keys()):
         print(f"{os:10}: ", end="")
         for i in range(1, 4):
             print(f"{i}ss {os_numss[os][i]:>4}", end=", ")
         print()
 
-    print("\nAPs/Clients per SSID (5G/2.4G)")
+    print("\n--- APs/Clients per SSID (2.4/5G/6G) ---")
     for ess in essapnset.keys():
-        print(f"{ess:20}: {len(essapnset[ess])} APs/{essctr[ess]} STAs ({essctrphy[ess][1]}/{essctrphy[ess][0]})")
+        print(f"{ess:20}: {len(essapnset[ess])} APs/{essctr[ess]} STAs ({essctrphy[ess][0]}/{essctrphy[ess][1]}/{essctrphy[ess][2]})")
 
     # print("\nTop 20 populated APs (based on L3 user table)")
     # for apn in sorted(apnctr.keys(), key=lambda x:apnctr[x], reverse=True)[:20]:
     #     print(f"{apn:15}: {apnctr[apn]}")
 
-    print("\nClients per Floor (based on L3 user table)")
+    print("\n--- Clients per Floor (based on L3 user table) ---")
     for fl in sorted(flrctr.keys()):
         print(f"{fl}: {flrctr[fl]}")
 
-    print("\nClients per channel")
+    print("\n--- Clients per channel ---")
     for ch in sorted(chctr.keys()):
         print(f"{ch}: {chctr[ch]}  ", end="")
     print()
 
-    print("\nVLANs per ESSID")
+    print("\n--- VLANs per ESSID ---")
     for ess in sorted(essvlan.keys()):
         vlans = sorted(essvlan[ess], key=lambda x: int(x))
         print(f"{ess:20}: {', '.join(vlans)}")
@@ -219,7 +239,7 @@ if __name__ == '__main__':
     #   draw pie chart
     #
     if DrawGraph:
-        band = {'2.4GHz': num2G, '5GHz': num5G}
+        band = {'2.4GHz': numsta_radio[0], '5GHz': numsta_radio[1], '6GHz': numsta_radio[2]}
         gen = {'HT(11n)': numht, 'VHT(11ac)': numvht, 'HE(11ax)': numhe}
         ss = {f"{i}ss": numss[i] for i in range(1, 4)}
         # colors = ['#ff9999', '#66b3ff', '#99ff99', '#ffcc99']
