@@ -47,7 +47,7 @@ else:
     log.setloglevel(log.LOG_INFO)
 
 
-cmds = ['show ap association', 'show user-table']
+cmds = ['show ap association', 'show user-table', 'show clients debug']
 assoc_tbl = []
 user_tbl = []
 
@@ -67,6 +67,10 @@ for f in infiles:
     _user_tbl = aos.get_table(cmds[1], 'IP', 'MAC', 'AP name', 'Type', 'Role')
     if _user_tbl:
         user_tbl.extend(_user_tbl)
+
+    _cli_tbl = aos.get_table(cmds[2], 'IP Address', 'MAC Address', 'Access Point', 'OS', 'Role')
+    if _cli_tbl:
+        user_tbl.extend(_cli_tbl)
 
 #
 #   Parse assoc table
