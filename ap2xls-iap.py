@@ -1,9 +1,9 @@
 #
 #   ap2xls-iap.py
 #
-#   show tech-support をパースし、以下の情報を Excel に書き出し
-#       AP Name, Model, IP
-#       各Radioについて、Channel, Clients, Util, Noise, Intf
+#   IAP/AOS10 AP の show tech-support をパースし、以下の情報を Excel に書き出し
+#       - AP Name, Model, Version, Uptime
+#       - 各Radioについて、PHY, Channel, EIRP, Clients, Util(%), OBSS(%), Intf(%), Noise(dBm)
 #
 
 import re
@@ -18,6 +18,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 
 
+RADIO_BAND = ['5', '2', '6']   # Radio 0/wifi0=5GHz, Radio 1/wifi1=2.4GHz, Radio 2/wifi2=6GHz
+
 def avg(it):
     s = 0
     n = 0
@@ -27,7 +29,7 @@ def avg(it):
     return s//n if n > 0 else 0
 
 parser = argparse.ArgumentParser(
-    description="Parse IAP tech-support and generate Excel file")
+    description="Parse IAP/AOS10 AP tech-support and generate Excel file")
 parser.add_argument('infiles', help="Input file(s) containing 'show tech-support' output", type=str, nargs='+')
 parser.add_argument('--debug', help='Enable debug log', action='store_true')
 args = parser.parse_args()
@@ -51,14 +53,16 @@ channel = defaultdict(lambda: defaultdict(str))
 eirp = defaultdict(lambda: defaultdict(str))
 
 uptime = defaultdict(str)
-ibss = defaultdict(lambda: defaultdict(int))
-obss = defaultdict(lambda: defaultdict(int))
-intf = defaultdict(lambda: defaultdict(int))
+ibss = defaultdict(lambda: defaultdict(lambda: None))
+obss = defaultdict(lambda: defaultdict(lambda: None))
+intf = defaultdict(lambda: defaultdict(lambda: None))
 
-nf = defaultdict(lambda: defaultdict(int))
-busy = defaultdict(lambda: defaultdict(int))
+nf = defaultdict(lambda: defaultdict(lambda: None))
+busy = defaultdict(lambda: defaultdict(lambda: None))
 
 model = defaultdict(str)
+osver = defaultdict(str)
+
 for fn in args.infiles:
     print(f"Processing {fn}")
 
@@ -85,14 +89,17 @@ for fn in args.infiles:
         if cbw <= maxbw[band][apn]:
             continue
         maxbw[band][apn] = cbw
-        htmode[band][apn] = m.group(2)
+        htmode[band][apn] = band + 'GHz-' +m.group(2)
         channel[band][apn], eirp[band][apn] = ch_eirp.split('/')[:2]
 
+    # avoid double counting
     if apn in aps:
         print(f"Duplicate AP Name found: {apn}")
         sys.exit(1)
-
     aps.add(apn)
+
+
+    # parse assoc table and get number of clients per radio
     for r in assoc_tbl:
         assoc, phy = r
         if assoc != 'y':
@@ -109,21 +116,35 @@ for fn in args.infiles:
     while (l := f.readline()):
         if not pat.search(l):
             continue
+        if l.startswith('end of show '):
+            continue
 
         if l.startswith("AP Uptime"):
             _ = f.readline()   # skip next line
-            uptime[apn] = f.readline().strip()
+            uptime[apn] = ' '.join(f.readline().strip().split()[:2])
             continue
 
+        # Get obss(%)
+        #    CCA stats history:wifi0
+        #    Phy-Type:5GHz
+        #    ch:      52   52   52   52   52   52   52   52   52   52   52   52   52   52
+        #    ibss:     1    2    2    2    2    3    4    6    6    3    1    2    3    4
+        #    obss:     3    3    3    3    3    3    4    3    3    4    4    4    4    4
+        #    intf:     0    0    0    0    0    0    0    0    0    0    0    0    0    0
+        #    
         if l.startswith("CCA stats history:"):
             if "wifi0" in l:
-                radio = '5'
+                radio = RADIO_BAND[0]
             elif "wifi1" in l:
-                radio = '2'
+                radio = RADIO_BAND[1]
+            elif "wifi2" in l:
+                radio = RADIO_BAND[2]
             else:
                 continue
             while True:
                 l = f.readline()
+                if not l:
+                    break
                 if l.startswith("ibss: "):
                     ibss[radio][apn] = avg(map(int, l[5:].strip().split()))     # max -> avg
                     continue
@@ -137,13 +158,19 @@ for fn in args.infiles:
 
         if "show ap debug radio-stats" in l:
             if "radio-stats 0" in l:
-                radio = '5'
+                radio = RADIO_BAND[0]
             elif "radio-stats 1" in l:
-                radio = '2'
+                radio = RADIO_BAND[1]
+            elif "radio-stats 2" in l:
+                radio = RADIO_BAND[2]
             else:
                 continue
+
             while True:
                 l = f.readline()
+                if not l or l.startswith("Command Failed") or l.startswith("end of show ap debug radio-stats"):
+                    break
+
                 if l.startswith("Current Noise Floor"):
                     nf[radio][apn] = -int(l.split()[-1])
                     continue
@@ -157,6 +184,8 @@ for fn in args.infiles:
                 l = f.readline()
                 if m:=re.search(r"MODEL: ([\w\d]+)", l):
                     model[apn] = m.group(1).strip()
+                    if m:=re.search(r"Version ([\d.]+)", l):
+                        osver[apn] = m.group(1).strip()
                     break
             continue
 
@@ -167,17 +196,17 @@ for fn in args.infiles:
 
 tbl = []
 for apn in sorted(aps):
-    row = [apn, model[apn], uptime[apn], 
-            htmode['5'][apn], eirp['5'][apn], channel['5'][apn], numsta['5'][apn], busy['5'][apn], obss['5'][apn], intf['5'][apn], nf['5'][apn],
-            htmode['2'][apn], eirp['2'][apn], channel['2'][apn], numsta['2'][apn], busy['2'][apn], obss['2'][apn], intf['2'][apn], nf['2'][apn],
+    row = [apn, model[apn], osver[apn], uptime[apn],
+            htmode['2'][apn], channel['2'][apn], eirp['2'][apn], numsta['2'][apn], busy['2'][apn], obss['2'][apn], intf['2'][apn], nf['2'][apn],
+            htmode['5'][apn], channel['5'][apn], eirp['5'][apn], numsta['5'][apn], busy['5'][apn], obss['5'][apn], intf['5'][apn], nf['5'][apn],
+            htmode['6'][apn], channel['6'][apn], eirp['6'][apn], numsta['6'][apn], busy['6'][apn], obss['6'][apn], intf['6'][apn], nf['6'][apn],
             ]
     tbl.append(row)
 
-df = pd.DataFrame(tbl, columns=['AP Name', 'Model', 'Uptime',
-                                # '5GHz Mode', '5GHz EIRP(dBm)', '5GHz Ch', '5GHz Clients', '5GHz Util%', '5GHz OBSS%', '5GHz Intf%', '5GHz NF(dBm)',
-                                # '2GHz Mode', '2GHz EIRP(dBm)', '2GHz Ch', '2GHz Clients', '2GHz Util%', '2GHz OBSS%', '2GHz Intf%', '2GHz NF(dBm)',
-                                'Mode', 'EIRP(dBm)', 'Channel', 'Clients', 'Util(%)', '他BSS(%)', '干渉(%)', 'ノイズ(dBm)',
-                                'Mode', 'EIRP(dBm)', 'Channel', 'Clients', 'Util(%)', '他BSS(%)', '干渉(%)', 'ノイズ(dBm)',
+df = pd.DataFrame(tbl, columns=['AP Name', 'Model', 'AOS Version', 'Uptime',
+                                'Mode', 'Channel', 'EIRP(dBm)', 'Clients', 'Util(%)', 'OBSS(%)', 'Intf(%)', 'Noise(dBm)',
+                                'Mode', 'Channel', 'EIRP(dBm)', 'Clients', 'Util(%)', 'OBSS(%)', 'Intf(%)', 'Noise(dBm)',
+                                'Mode', 'Channel', 'EIRP(dBm)', 'Clients', 'Util(%)', 'OBSS(%)', 'Intf(%)', 'Noise(dBm)',
                                 ])
 
 
@@ -194,17 +223,17 @@ for row in ws.iter_rows(min_row=1):
     for cell in row:
         cell.font = f
 
-widths = [25, 10, 30,   10, 10, 10,    10, 10, 10, 10,   10, 10, 10,   10, 10, 10, 10]
+widths = [25, 10, 15, 10,   10, 10, 10,    10, 10, 10, 10,   10, 10, 10,   10, 10, 10, 10,   10, 10, 10,   10, 10, 10, 10]
 for i,w in enumerate(widths):
     ws.column_dimensions[chr(65+i)].width = w
 
 f = Font(name='Arial', bold=True, size=9)
 Ses = PatternFill(fgColor="BDD7EE", fill_type="solid")
-for cell in ws['A1':'S1'][0]:
+for cell in ws['A1':'AB1'][0]:
     cell.fill = Ses
     cell.font = f
 
-ws.auto_filter.ref = "A:S"
+ws.auto_filter.ref = "A:AB"
 ws.freeze_panes = "A2"
 
 
