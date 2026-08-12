@@ -14,6 +14,7 @@ import mylogger as log
 from aos_parser import AOSParser, AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE
 from collections import defaultdict
 from colorama import Fore, Style
+from utils import isintf
 
 Color = True
 
@@ -35,67 +36,6 @@ else:
     YELLOW = ""
     RESET = ""
 
-chlist = ['36', '40', '44', '48', '52', '56', '60', '64', '100', '104', '108', '112', '116', '120', '124', '128', '132', '136', '140', '144', '149', '153', '157', '161', '165']
-chlist40 = ['36', '44', '52', '60', '100', '108', '116', '124', '132', '140', '149', '157']
-chlist80 = ['36', '52', '100', '116', '132','149']
-chlist160 = ['36', '100', '149']
-
-chsets = {}
-
-for ch in chlist:
-    chsets[ch] = {ch}
-for ch in chlist40:
-    ch2 = str(int(ch)+4)
-    chsets[ch  + '+'] = {ch, ch2}
-    chsets[ch2 + '-'] = {ch, ch2}
-for ch in chlist80:
-    ch2 = str(int(ch)+4)
-    ch3 = str(int(ch)+8)
-    ch4 = str(int(ch)+12)
-    chsets[ch  + 'E'] = {ch, ch2, ch3, ch4}
-    chsets[ch2 + 'E'] = {ch, ch2, ch3, ch4}
-    chsets[ch3 + 'E'] = {ch, ch2, ch3, ch4}
-    chsets[ch4 + 'E'] = {ch, ch2, ch3, ch4}
-for ch in chlist160:
-    ch2 = str(int(ch)+4)
-    ch3 = str(int(ch)+8)
-    ch4 = str(int(ch)+12)
-    ch5 = str(int(ch)+16)
-    ch6 = str(int(ch)+20)
-    ch7 = str(int(ch)+24)
-    ch8 = str(int(ch)+28)
-    chsets[ch  + 'S'] = {ch, ch2, ch3, ch4, ch5, ch6, ch7, ch8}
-    chsets[ch2 + 'S'] = {ch, ch2, ch3, ch4, ch5, ch6, ch7, ch8}
-    chsets[ch3 + 'S'] = {ch, ch2, ch3, ch4, ch5, ch6, ch7, ch8}
-    chsets[ch4 + 'S'] = {ch, ch2, ch3, ch4, ch5, ch6, ch7, ch8}
-    chsets[ch5 + 'S'] = {ch, ch2, ch3, ch4, ch5, ch6, ch7, ch8}
-    chsets[ch6 + 'S'] = {ch, ch2, ch3, ch4, ch5, ch6, ch7, ch8}
-    chsets[ch7 + 'S'] = {ch, ch2, ch3, ch4, ch5, ch6, ch7, ch8}
-    chsets[ch8 + 'S'] = {ch, ch2, ch3, ch4, ch5, ch6, ch7, ch8}
-
-
-chlist2G = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']
-for i in range(14):
-    chsets[chlist2G[i]] = set(chlist2G[max(i-2, 0):min(i+3, len(chlist2G))])
-
-for i in range(10):
-    chsets[chlist2G[i]+'+'] = set(chlist2G[max(i-2, 0):min(i+8, len(chlist2G))])
-
-for i in range(5,14):
-    chsets[chlist2G[i]+'-'] = set(chlist2G[max(i-7, 0):min(i+3, len(chlist2G))])
-
-def isIntf(ch1, ch2):
-    global chsets
-    if ch1 not in chsets:
-        print(f"Warning: unknown channel: {ch1}")
-        return False
-    if ch2 not in chsets:
-        print(f"Warning: unknown channel: {ch2}")
-        return False
-    if chsets[ch1] & chsets[ch2]:
-        return True
-    
-    return False
 
 
 def print_table(tbl):
@@ -134,6 +74,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
     parser.add_argument('--band', '-b', help='Radio band', type=str, default='5')
     parser.add_argument('--summary', help='Summary only', action='store_true')
+    parser.add_argument('--extend-valid', help='Assume the AP type as valid if the BSSID is in the dictionary', action='store_true')
     parser.add_argument('--coch', help='Co-channel APs only', action='store_true')
     parser.add_argument('--group', help='Group adjacent BSSIDs for interfering APs', action='store_true')
     parser.add_argument('--bssdic', '-d', help='Specify BSSID dictionary', type=str)
@@ -160,6 +101,10 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"Error: can't import {args.bssdic}.py: {e}")
             sys.exit(1)
+
+    if args.summary:
+        print('"AP Name","Channel","Coverage APs","Co-ch APs"')
+
 
     #
     #   parse files
@@ -214,10 +159,16 @@ if __name__ == '__main__':
 
 
         if len(aplist) == 0:
-            print("No APs found.")
-            sys.exit(0)
+            if not args.summary:
+                print("No APs found.")
+            continue
 
 
+        if args.extend_valid:
+            for r in aplist:
+                bss = r[0][:17]
+                if bss in bss2apn:
+                    r[6] = "valid"
 
         valid_aps = [r for r in aplist if r[6] == "valid"]              # Valid AP list
         intf_aps = [r for r in aplist if r[6] != "valid" and r[8]!=0]   # non-Valid and SNR!=0 AP list
@@ -250,7 +201,7 @@ if __name__ == '__main__':
             else:
                 if snr >= 30:
                     cov_ap += 1
-                if isIntf(ch, mych):
+                if isintf(args.band, ch, mych):
                     if snr >= 10:
                         rr[0] = RED
                         rslt_coch.append([None, bss, apn, ch, snr])
@@ -297,7 +248,7 @@ if __name__ == '__main__':
             intf_tot += 1
             rr = [None, bss, ess, ch, cbw_phy, ap_type, enc, snr, -rssi, apn]
 
-            if isIntf(ch, mych):
+            if isintf(args.band, ch, mych):
                 if snr >= 10:
                     rr[0] = RED
                     rslt_coch.append([None, bss, ess, ch, ap_type, snr])
