@@ -6,6 +6,7 @@
 #       - Coverage AP (SNR が 30 以上で検出された Aruba AP)
 #       - Co-channel AP (SNR が 10 以上で検出され、チャネルが重複する Aruba AP)
 #
+#   複数コントローラが指定された場合、Neighbor AP 数が多い方のデータを残す(TBI)
 
 import sys
 import re
@@ -18,6 +19,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 import pandas as pd
+from utils import isintf
 
 COV_SNR = 30
 xlsfile = "coch-aps.xlsx"
@@ -47,44 +49,6 @@ grpitf = defaultdict(lambda: 0)
 allctr = 0
 allitf = 0
 
-
-chlist = ['36', '40', '44', '48', '52', '56', '60', '64', '100', '104', '108', '112', '116', '120', '124', '128', '132', '136', '140', '144', '149', '153', '157', '161', '165']
-chlist40 = ['36', '44', '52', '60', '100', '108', '116', '124', '132', '140', '149', '157']
-chlist80 = ['36', '52', '100', '116', '132', '149']
-
-chsets = {}
-
-for ch in chlist:
-    chsets[ch] = {ch}
-for ch in chlist40:
-    ch2 = str(int(ch)+4)
-    chsets[ch  + '+'] = {ch, ch2}
-    chsets[ch2 + '-'] = {ch, ch2}
-for ch in chlist80:
-    ch2 = str(int(ch)+4)
-    ch3 = str(int(ch)+8)
-    ch4 = str(int(ch)+12)
-    chsets[ch  + 'E'] = {ch, ch2, ch3, ch4}
-    chsets[ch2 + 'E'] = {ch, ch2, ch3, ch4}
-    chsets[ch3 + 'E'] = {ch, ch2, ch3, ch4}
-    chsets[ch4 + 'E'] = {ch, ch2, ch3, ch4}
-
-chlist2G = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']
-for i in range(14):
-    chsets[chlist2G[i]] = set(chlist2G[max(i-2, 0):min(i+3, len(chlist2G))])
-
-for i in range(9):
-    chsets[chlist2G[i]+'+'] = set(chlist2G[max(i-2, 0):min(i+8, len(chlist2G))])
-
-for i in range(5,14):
-    chsets[chlist2G[i]+'-'] = set(chlist2G[max(i-7, 0):min(i+3, len(chlist2G))])
-
-
-def isintf(ch1, ch2):
-    global chsets
-    if chsets[ch1] & chsets[ch2]:
-        return True
-    return False
 
 
 def apn2floor(apn):
@@ -142,7 +106,7 @@ def parse_nbr_data(out, myapn, mych):
                 print(f"Can't parse Ch/EIRP: {fileinput.filelineno()}: {r[5]}")
                 continue
 
-            if isintf(ch, mych):
+            if isintf(args.band, ch, mych):
                 ncoch += 1
 
 
