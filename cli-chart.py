@@ -2,7 +2,7 @@
 #   cli-chart.py
 #   以下のコマンドをパースし、端末能力の pie chart 画像を作成
 #       show ap association - ESSID, VLAN, PHY
-#       show user - Name, IP, OS, Role
+#       show user / show clients debug - Name, IP, OS, Role
 #
 
 from glob import glob
