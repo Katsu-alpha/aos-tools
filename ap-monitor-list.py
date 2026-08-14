@@ -201,13 +201,17 @@ if __name__ == '__main__':
             else:
                 if snr >= 30:
                     cov_ap += 1
-                if isintf(args.band, ch, mych):
-                    if snr >= 10:
-                        rr[0] = RED
-                        rslt_coch.append([None, bss, apn, ch, snr])
-                        valid_coch_snr10 += 1
-                    else:
-                        rr[0] = YELLOW
+                try:
+                    if isintf(args.band, ch, mych):
+                        if snr >= 10:
+                            rr[0] = RED
+                            rslt_coch.append([None, bss, apn, ch, snr])
+                            valid_coch_snr10 += 1
+                        else:
+                            rr[0] = YELLOW
+                except ValueError:
+                    pass
+
             rslt.append(rr)
 
         if args.summary:
@@ -248,13 +252,17 @@ if __name__ == '__main__':
             intf_tot += 1
             rr = [None, bss, ess, ch, cbw_phy, ap_type, enc, snr, -rssi, apn]
 
-            if isintf(args.band, ch, mych):
-                if snr >= 10:
-                    rr[0] = RED
-                    rslt_coch.append([None, bss, ess, ch, ap_type, snr])
-                    intf_coch_snr10 += 1
-                else:
-                    rr[0] = YELLOW
+            try:
+                if isintf(args.band, ch, mych):
+                    if snr >= 10:
+                        rr[0] = RED
+                        rslt_coch.append([None, bss, ess, ch, ap_type, snr])
+                        intf_coch_snr10 += 1
+                    else:
+                        rr[0] = YELLOW
+            except ValueError:
+                pass
+
             rslt.append(rr)
 
 
