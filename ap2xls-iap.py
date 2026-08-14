@@ -108,7 +108,7 @@ for fn in args.infiles:
             numsta[phy[0]][apn] += 1
 
 
-    pat = re.compile(r"(^AP Uptime$|^CCA stats history:|show ap debug radio-stats|show version)")
+    pat = re.compile(r"(^AP Uptime$|^CCA stats history:|show ap debug radio-stats|show version|^wifi[012]     phy_stats:)")
     #
     #   parse file line by line
     #
@@ -125,13 +125,19 @@ for fn in args.infiles:
             continue
 
         # Get obss(%)
+        #   - show ap arm rf-summary
+        #   - last 30 samples, 1 sample per 1 second, latest first
         #    CCA stats history:wifi0
+        #   --- example output ---
         #    Phy-Type:5GHz
         #    ch:      52   52   52   52   52   52   52   52   52   52   52   52   52   52
         #    ibss:     1    2    2    2    2    3    4    6    6    3    1    2    3    4
         #    obss:     3    3    3    3    3    3    4    3    3    4    4    4    4    4
         #    intf:     0    0    0    0    0    0    0    0    0    0    0    0    0    0
+        #   ----------------------
         #    
+        #   以下のバージョンには存在しない
+        #   10.4.1.5 の AP635
         if l.startswith("CCA stats history:"):
             if "wifi0" in l:
                 radio = RADIO_BAND[0]
@@ -142,7 +148,7 @@ for fn in args.infiles:
             else:
                 continue
             while True:
-                l = f.readline()
+                l = f.readline().strip()
                 if not l:
                     break
                 if l.startswith("ibss: "):
@@ -154,6 +160,40 @@ for fn in args.infiles:
                 if l.startswith("intf: "):
                     intf[radio][apn] = avg(map(int, l[5:].strip().split()))     # max -> avg
                     break
+            continue
+
+        # Get obss(%), intf(%)
+        #   - show ap debug radio-info
+        #   - last 10 samples, 1 sample per 1 seconds, latest last
+        #   --- example output ---
+        #   wifi0     phy_stats:0
+        #   
+        #   Tx Time (%)             1        1        1        1        1        1        4        1        1        1
+        #   Rx Time (%)             3        3        3        4        3        3        3        3        3        3
+        #   Rx Time To Me (%)       0        0        0        0        0        0        0        0        0        0
+        #   CCA Busy (%)            5        4        5        6        5        4        8        5        5        5
+        #   	                   ------------------------------------------------------------------------------------------
+        #   Interference (%)        1        0        1        1        1        0        1        1        1        1
+        #   ----------------------
+        #
+        #   BRCM AP では出力されない
+        if l.startswith("wifi"):
+            radio = RADIO_BAND[int(l[4])]
+            for _ in range(7):
+                l = f.readline()
+                if l.startswith("Rx Time (%) "):
+                    rx_time = avg(map(int, l[12:].strip().split()))
+                    continue
+                if l.startswith("Rx Time To Me (%) "):
+                    rx_time_to_me = avg(map(int, l[18:].strip().split()))
+                    continue
+                if l.startswith("Interference (%) "):
+                    _intf = avg(map(int, l[17:].strip().split()))
+                    break
+            if apn not in intf[radio]:
+                intf[radio][apn] = _intf
+            if apn not in obss[radio]:
+                obss[radio][apn] = rx_time - rx_time_to_me
             continue
 
         if "show ap debug radio-stats" in l:
