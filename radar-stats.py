@@ -3,6 +3,9 @@
 #   show airmatch event radar パースし、radar-stats.xlsx に書き出す
 #   --min <num> 回未満の AP は無視
 #
+#   以下のファイルも対応
+#       - show ap arm history の結果を含むファイル
+#       - Central の Events エクスポート csv
 
 import sys
 import argparse
@@ -35,14 +38,37 @@ if __name__ == '__main__':
         log.setloglevel(log.LOG_INFO)
 
     #
-    #   parse datapath session table
+    #   parse radar event table
     #
     #radar_cmd = "show airmatch event radar all-aps"
-    radar_cmd = "show airmatch event .+"
-    aos = AOSParser(args.files, radar_cmd, merge=True)
-    radar_tbl = aos.get_table(radar_cmd, "APName", "Chan")
+    cmds = ["show airmatch event .+", "show ap arm history.*"]
+    aos = AOSParser(args.files, cmds, merge=True)
+    radar_tbl = aos.get_table(cmds[0], "APName", "Chan")
+    armhist_tbl = aos.get_table(cmds[1], "filename", "Time of Change", "Old Channel", "New Channel", "Reason")
 
-    if radar_tbl is None:
+
+    if armhist_tbl:
+        # arm history から radar event を抽出する
+        radar_tbl = []
+        radar_ts = []
+        for r in armhist_tbl:
+            fn, ts, chan, chan2, reason = r
+            if reason == 'R':
+                m = re.search(r'([a-zA-Z0-9-]+)\.(log|txt)', fn)
+                if m:
+                    apn = m.group(1)
+                else:
+                    apn = fn.split(',')[0]
+                pchan = re.sub(r'[SE+-]', '', chan)
+                radar_tbl.append([apn, pchan])
+                radar_ts.append((ts, apn, chan, chan2))
+        for r in sorted(radar_ts):
+            ts, apn, chan, chan2 = r
+            print(f"{ts} {apn} {chan} -> {chan2}")
+
+
+
+    elif radar_tbl is None:
         # fall back to csv (exported from Central events)
         tbl = load_csv(args.files[0])
 
