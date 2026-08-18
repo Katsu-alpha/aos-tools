@@ -8,11 +8,7 @@
 #
 
 import re
-import glob
 import fileinput
-import sys
-import argparse
-from colorama import Fore, Style
 import mylogger as log
 
 AP_DATABASE_TABLE = "show ap database"
@@ -27,6 +23,24 @@ DATAPATH_SESSION_INT = "show datapath session internal"
 DATAPATH_USER = "show datapath user table"
 DATAPATH_BRIDGE = "show datapath bridge table"
 DATAPATH_TUNNEL = "show datapath tunnel verbose"
+
+
+class Fore:
+    BLACK = '\x1b[30m'
+    BLUE = '\x1b[34m'
+    CYAN = '\x1b[36m'
+    GREEN = '\x1b[32m'
+    MAGENTA = '\x1b[35m'
+    RED = '\x1b[31m'
+    RESET = '\x1b[39m'
+    WHITE = '\x1b[37m'
+    YELLOW = '\x1b[33m'
+
+class Style:
+    BRIGHT = '\x1b[1m'
+    DIM = '\x1b[2m'
+    NORMAL = '\x1b[22m'
+    RESET_ALL = '\x1b[0m'
 
 #
 #   helper functions
@@ -211,9 +225,10 @@ class AOSParser:
                 data = files.splitlines()
                 self.fromfile = False
             elif '*' in files:
+                import glob
                 files = glob.glob(files)
         else:   # files is a list
-            if '\n' in files[0]:
+            if '\n' in files[0]:    # 改行コードが含まれている場合、ファイル名ではなく、行のリストとみなす
                 data = files
                 self.fromfile = False
 
@@ -306,6 +321,8 @@ class AOSParser:
                         else:
                             row[idx_app] = app.split(" ")[0]
 
+                    if self.fromfile:
+                        row.append(fileinput.filename())        # add filename column
                     self.cur_table.append(row)
                     continue
 
@@ -334,6 +351,9 @@ class AOSParser:
                             idx_status = row.index("Status")
                         elif self.cur_cmd == DATAPATH_SESSION_DPI:
                             idx_app = row.index("AppID")
+                        if self.fromfile:
+                            row.append("filename")  # add filename column
+                        # add header row
                         self.cur_table.append(row)
 
                 else:
@@ -476,35 +496,4 @@ class AOSParser:
         for i, col in enumerate(cols):
             if col in col_nam:
                 cols[i] = col_nam[col]
-
-#
-#   main
-#
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser(
-        description="parse show command outputs and format it to txt/csv files")
-    parser.add_argument('files', help="tech-support logs/show ap bss-table output", type=str, nargs='*')
-    parser.add_argument('--csv', help='output csv format', action='store_true')
-    parser.add_argument('--debug', help='debug log', action='store_true')
-    args = parser.parse_args()
-
-    if args.debug:
-        log.setloglevel(log.LOG_DEBUG)
-    else:
-        log.setloglevel(log.LOG_INFO)
-
-    cmds = [AP_DATABASE_LONG_TABLE, AP_ACTIVE_TABLE, AP_ASSOCIATION_TABLE, USER_TABLE]
-    aos = AOSParser(args.files, cmds=cmds)
-
-    #   write files
-    for cmd in cmds:
-        tbl = aos.get_table(cmd)
-        if tbl:
-            if args.csv:
-                aos.write_csv(tbl, cmd + ".csv")
-            else:
-                write_table(tbl, cmd+".txt")
-
-    sys.exit(0)
 
