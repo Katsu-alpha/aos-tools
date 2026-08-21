@@ -29,6 +29,7 @@ if __name__ == '__main__':
         description="parse radar events and export the summary to radar-stats.xlsx")
     parser.add_argument('files', type=str, nargs='*')
     parser.add_argument('--min', help='Minimum radar threshold', type=int, default=2)
+    parser.add_argument('--fromdate', help='From date filter', type=str)
     parser.add_argument('--debug', help='debug log', action='store_true')
     args = parser.parse_args()
 
@@ -54,6 +55,8 @@ if __name__ == '__main__':
         for r in armhist_tbl:
             fn, ts, chan, chan2, reason = r
             if reason == 'R':
+                if args.fromdate and ts < args.fromdate:
+                    continue
                 m = re.search(r'([a-zA-Z0-9-]+)\.(log|txt)', fn)
                 if m:
                     apn = m.group(1)
