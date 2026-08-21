@@ -74,10 +74,12 @@ if __name__ == '__main__':
     parser.add_argument('--debug', help='Enable debug log', action='store_true')
     parser.add_argument('--band', '-b', help='Radio band', type=str, default='5')
     parser.add_argument('--summary', help='Summary only', action='store_true')
+    parser.add_argument('--intfsummary', help='Summary only for interfering APs', action='store_true')
     parser.add_argument('--extend-valid', help='Assume the AP type as valid if the BSSID is in the dictionary', action='store_true')
     parser.add_argument('--coch', help='Co-channel APs only', action='store_true')
     parser.add_argument('--group', help='Group adjacent BSSIDs for interfering APs', action='store_true')
     parser.add_argument('--bssdic', '-d', help='Specify BSSID dictionary', type=str)
+    parser.add_argument('--excel', help='Write interfering APs to Excel', action='store_true')
     args = parser.parse_args()
 
     if args.debug:
@@ -111,6 +113,7 @@ if __name__ == '__main__':
     #
     cmd = ["show ap monitor ap-list.*","show ap bss-table"]
     cols = ["bssid", "essid", "band/chan/ch-width/ht-type", "ap-type", "encr", "curr-snr", "curr-rssi"]
+    all_intf = {}
     for fn in args.infiles:
         aos = AOSParser(fn, cmd, merge=True)
         ap_list_tbl = aos.get_table(cmd[0], *cols)
@@ -221,7 +224,7 @@ if __name__ == '__main__':
         elif args.coch:
             print("****************** Valid Co-channel APs ******************\n")
             print_table(rslt_coch)
-        else:
+        elif not args.intfsummary:
             print("****************** Valid APs ******************\n")
             print_table(rslt)
             print(f"\nTotal Valid APs: {valid_tot}, Coverage APs with SNR>=30: {cov_ap}, Co-ch APs with SNR>=10: {valid_coch_snr10}\n")
@@ -264,7 +267,15 @@ if __name__ == '__main__':
                 pass
 
             rslt.append(rr)
+            if bss not in all_intf:
+                all_intf[bss] = rr + [myapn]
+            else:
+                if snr > all_intf[bss][7]:
+                    all_intf[bss] = rr + [myapn]
 
+        if args.intfsummary:
+            print(f'"{myapn}","{mych}",{intf_tot},{intf_coch_snr10}')
+            continue
 
         if args.coch:
             print(f"\n****************** Interfering Co-channel APs seen by {myapn} on ch{mych} ******************\n")
@@ -276,5 +287,17 @@ if __name__ == '__main__':
             
 
 
+    if args.excel:
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Interfering APs"
+        ws.append(["BSSID", "ESSID", "Chan", "CBW/PHY", "Type", "Enc", "SNR", "RSSI", "AP Name", "Seen by"])
+        for bss in sorted(all_intf.keys(), key=lambda x: all_intf[x][7], reverse=True):
+            r = all_intf[bss]
+            ws.append(r[1:])
 
+        excel_file = "interfering_aps.xlsx"
+        wb.save(excel_file)
+        print(f"\nInterfering APs written to {excel_file}")
 
